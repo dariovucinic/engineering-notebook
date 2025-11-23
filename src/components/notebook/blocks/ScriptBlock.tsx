@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { ScriptBlock as ScriptBlockType } from '@/types/block';
 import { useComputation } from '@/contexts/ComputationContext';
+import CodeEditor from '../CodeEditor';
 
 interface ScriptBlockProps {
     block: ScriptBlockType;
@@ -24,26 +25,6 @@ const ScriptBlock: React.FC<ScriptBlockProps> = ({ block, onChange }) => {
 
     const handleLanguageChange = (newLanguage: 'python' | 'r') => {
         onChange({ language: newLanguage });
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (e.key === 'Tab') {
-            e.preventDefault();
-            const start = e.currentTarget.selectionStart;
-            const end = e.currentTarget.selectionEnd;
-            const value = block.content;
-            const newValue = value.substring(0, start) + '    ' + value.substring(end);
-
-            onChange({ content: newValue });
-
-            // We need to set the cursor position after the state update
-            // Using setTimeout to ensure it runs after render
-            setTimeout(() => {
-                if (e.target instanceof HTMLTextAreaElement) {
-                    e.target.selectionStart = e.target.selectionEnd = start + 4;
-                }
-            }, 0);
-        }
     };
 
     return (
@@ -88,14 +69,11 @@ const ScriptBlock: React.FC<ScriptBlockProps> = ({ block, onChange }) => {
                     )}
                 </button>
             </div>
-            <div className="flex-1 relative group">
-                <textarea
-                    className="absolute inset-0 w-full h-full p-4 font-mono text-sm bg-transparent resize-none outline-none text-slate-800 leading-relaxed"
+            <div className="flex-1 relative overflow-hidden">
+                <CodeEditor
                     value={block.content}
-                    onChange={(e) => onChange({ content: e.target.value })}
-                    onKeyDown={handleKeyDown}
-                    placeholder={language === 'python' ? '# Write Python code here...' : '# Write R code here...'}
-                    spellCheck={false}
+                    onChange={(content) => onChange({ content })}
+                    language={language === 'r' ? 'javascript' : language}
                 />
             </div>
             {block.output && (
