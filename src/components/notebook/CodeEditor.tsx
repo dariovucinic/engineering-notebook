@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import { EditorView } from '@codemirror/view';
+import { EditorView, basicSetup } from 'codemirror';
 import { EditorState } from '@codemirror/state';
-import { basicSetup } from '@codemirror/basic-setup';
 import { python } from '@codemirror/lang-python';
 import { javascript } from '@codemirror/lang-javascript';
 import { oneDark } from '@codemirror/theme-one-dark';
