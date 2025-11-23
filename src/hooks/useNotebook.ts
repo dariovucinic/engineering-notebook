@@ -16,7 +16,17 @@ export const useNotebook = () => {
 
         switch (type) {
             case 'text':
-                newBlock = { ...baseBlock, type: 'text', content: '' };
+                newBlock = {
+                    ...baseBlock,
+                    type: 'text',
+                    content: '',
+                    style: {
+                        color: '#000000',
+                        fontSize: '14px',
+                        fontFamily: 'Inter, sans-serif',
+                        textAlign: 'left'
+                    }
+                };
                 break;
             case 'script':
                 newBlock = { ...baseBlock, type: 'script', content: '', output: '' };
@@ -28,10 +38,23 @@ export const useNotebook = () => {
                 newBlock = { ...baseBlock, type: 'image', content: '' };
                 break;
             case 'table':
-                newBlock = { ...baseBlock, type: 'table', content: [['', '', ''], ['', '', ''], ['', '', '']] };
+                newBlock = {
+                    ...baseBlock,
+                    type: 'table',
+                    content: [['', '', ''], ['', '', ''], ['', '', '']],
+                    style: {
+                        color: '#000000',
+                        fontSize: '14px',
+                        fontFamily: 'Inter, sans-serif',
+                        textAlign: 'center'
+                    }
+                };
                 break;
             case 'data':
-                newBlock = { ...baseBlock, type: 'data', size: { width: 400, height: 300 } };
+                newBlock = { ...baseBlock, type: 'data', content: [], size: { width: 400, height: 300 } };
+                break;
+            case 'cad':
+                newBlock = { ...baseBlock, type: 'cad', content: '', size: { width: 500, height: 500 } };
                 break;
             default:
                 newBlock = { ...baseBlock, type: 'text', content: '' };

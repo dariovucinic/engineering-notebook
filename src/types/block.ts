@@ -1,4 +1,4 @@
-export type BlockType = 'text' | 'math' | 'table' | 'image' | 'script' | 'formula' | 'data';
+export type BlockType = 'text' | 'math' | 'table' | 'image' | 'script' | 'formula' | 'data' | 'cad';
 
 export interface BlockPosition {
     x: number;
@@ -8,6 +8,14 @@ export interface BlockPosition {
 export interface BlockSize {
     width: number;
     height: number;
+}
+
+export interface BlockStyle {
+    color?: string;
+    fontSize?: string;
+    fontFamily?: string;
+    fontWeight?: string;
+    textAlign?: 'left' | 'center' | 'right';
 }
 
 export interface BaseBlock {
@@ -20,6 +28,7 @@ export interface BaseBlock {
 export interface TextBlock extends BaseBlock {
     type: 'text';
     content: string;
+    style?: BlockStyle;
 }
 
 export interface ScriptBlock extends BaseBlock {
@@ -44,15 +53,18 @@ export interface TableBlock extends BaseBlock {
     type: 'table';
     content: string[][];
     variableName?: string;
+    style?: BlockStyle;
 }
 
 export interface DataImportBlock extends BaseBlock {
     type: 'data';
-    fileName?: string;
-    data?: any;
-    selectedSheet?: string;
+    content: any[];
     variableName?: string;
 }
 
-export type Block = TextBlock | ScriptBlock | FormulaBlock | ImageBlock | TableBlock | DataImportBlock;
+export interface CADBlock extends BaseBlock {
+    type: 'cad';
+    content: string; // Base64 or URL
+}
 
+export type Block = TextBlock | ScriptBlock | FormulaBlock | ImageBlock | TableBlock | DataImportBlock | CADBlock;

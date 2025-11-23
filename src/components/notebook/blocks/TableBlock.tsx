@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { TableBlock as TableBlockType } from '@/types/block';
+import { TableBlock as TableBlockType, BlockStyle } from '@/types/block';
 import { useComputation } from '@/contexts/ComputationContext';
 import * as XLSX from 'xlsx';
+import FormattingToolbar from '../FormattingToolbar';
 
 interface TableBlockProps {
     block: TableBlockType;
@@ -13,6 +14,14 @@ interface TableBlockProps {
 const TableBlock: React.FC<TableBlockProps> = ({ block, onChange }) => {
     const { evaluateFormula, scope, scopeVersion } = useComputation();
     const [, setUpdateTrigger] = useState(0);
+    const [showFormatting, setShowFormatting] = useState(false);
+
+    const style = block.style || {
+        color: '#000000',
+        fontSize: '14px',
+        fontFamily: 'Inter, sans-serif',
+        textAlign: 'center'
+    };
 
     // Initialize with some data if empty
     const data = block.content.length > 0 ? block.content : [['', '', ''], ['', '', ''], ['', '', '']];
@@ -38,6 +47,10 @@ const TableBlock: React.FC<TableBlockProps> = ({ block, onChange }) => {
             scope.current[block.variableName.trim()] = data;
         }
     }, [block.variableName, data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const handleStyleChange = (newStyle: BlockStyle) => {
+        onChange({ style: newStyle });
+    };
 
     const handleCellChange = (rowIndex: number, colIndex: number, value: string) => {
         const newData = [...data];
@@ -153,7 +166,22 @@ const TableBlock: React.FC<TableBlockProps> = ({ block, onChange }) => {
                     onChange={(e) => onChange({ variableName: e.target.value })}
                     placeholder="variable_name"
                 />
+                <div className="flex-1" />
+                <button
+                    onClick={() => setShowFormatting(!showFormatting)}
+                    className={`p-1.5 rounded hover:bg-slate-100 ${showFormatting ? 'bg-slate-100 text-indigo-600' : 'text-slate-500'}`}
+                    title="Toggle Formatting"
+                >
+                    <span className="text-lg">Aa</span>
+                </button>
             </div>
+
+            {showFormatting && (
+                <div className="px-2 pt-2">
+                    <FormattingToolbar style={style} onChange={handleStyleChange} />
+                </div>
+            )}
+
             <div className="p-0 overflow-auto flex-1 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
                 <table className="w-full border-collapse">
                     <tbody>
@@ -167,10 +195,16 @@ const TableBlock: React.FC<TableBlockProps> = ({ block, onChange }) => {
                                         <td key={`${rowIndex}-${colIndex}`} className="border border-slate-100 p-0 min-w-[60px] h-8 relative group transition-colors hover:bg-slate-50">
                                             <input
                                                 className={`
-                                                    w-full h-full px-2 py-1 outline-none border-none bg-transparent text-sm font-mono
+                                                    w-full h-full px-2 py-1 outline-none border-none bg-transparent font-mono
                                                     ${isFormula ? 'text-indigo-600 font-medium' : 'text-slate-700'}
                                                     placeholder:text-slate-300
                                                 `}
+                                                style={{
+                                                    color: style.color,
+                                                    fontSize: style.fontSize,
+                                                    fontFamily: style.fontFamily,
+                                                    textAlign: style.textAlign
+                                                }}
                                                 value={cell === null || cell === undefined ? '' : String(cell)}
                                                 onChange={(e) => handleCellChange(rowIndex, colIndex, e.target.value)}
                                                 placeholder={rowIndex === 0 && colIndex === 0 ? '=' : ''}
@@ -178,7 +212,15 @@ const TableBlock: React.FC<TableBlockProps> = ({ block, onChange }) => {
                                             {isFormula && (
                                                 <>
                                                     {/* Display result overlay */}
-                                                    <div className="absolute inset-0 bg-white/95 pointer-events-none flex items-center px-2 text-sm text-slate-800 font-medium group-hover:opacity-0 transition-opacity">
+                                                    <div
+                                                        className="absolute inset-0 bg-white/95 pointer-events-none flex items-center px-2 text-sm text-slate-800 font-medium group-hover:opacity-0 transition-opacity"
+                                                        style={{
+                                                            color: style.color,
+                                                            fontSize: style.fontSize,
+                                                            fontFamily: style.fontFamily,
+                                                            textAlign: style.textAlign
+                                                        }}
+                                                    >
                                                         {displayValue}
                                                     </div>
                                                     {/* Show formula on hover */}

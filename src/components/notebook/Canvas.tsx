@@ -10,9 +10,11 @@ import FormulaBlock from './blocks/FormulaBlock';
 import ImageBlock from './blocks/ImageBlock';
 import TableBlock from './blocks/TableBlock';
 import DataImportBlock from './blocks/DataImportBlock';
+import CADBlock from './blocks/CADBlock';
 import { BlockType, Block } from '@/types/block';
 import { ExportManager } from '@/utils/ExportManager';
 import VariableExplorer from './VariableExplorer';
+import SimpleChatButton from './SimpleChatButton';
 
 const ToolbarButton = ({ onClick, icon, label }: { onClick: () => void; icon: string; label: string }) => (
     <button
@@ -25,7 +27,7 @@ const ToolbarButton = ({ onClick, icon, label }: { onClick: () => void; icon: st
 );
 
 const Canvas: React.FC = () => {
-    const { blocks, addBlock, updateBlock } = useNotebook();
+    const { blocks, addBlock, updateBlock, removeBlock } = useNotebook();
     const [zoom, setZoom] = React.useState(1);
     const [pan, setPan] = React.useState({ x: 0, y: 0 });
     const [isSpacePressed, setIsSpacePressed] = React.useState(false);
@@ -206,6 +208,7 @@ const Canvas: React.FC = () => {
                     <ToolbarButton onClick={() => handleAddBlock('table')} icon="▦" label="Table" />
                     <ToolbarButton onClick={() => handleAddBlock('data')} icon="📊" label="Data" />
                     <ToolbarButton onClick={() => handleAddBlock('image')} icon="🖼️" label="Image" />
+                    <ToolbarButton onClick={() => handleAddBlock('cad')} icon="🧊" label="CAD" />
 
                     <div className="w-px h-10 bg-slate-200 mx-1 self-center" />
 
@@ -271,10 +274,10 @@ const Canvas: React.FC = () => {
                     </button>
                     <button
                         onClick={() => setShowSidebar(!showSidebar)}
-                        className="p-2 bg-white/80 backdrop-blur-md rounded-lg shadow-sm border border-slate-200 hover:bg-slate-50 transition-colors"
+                        className={`p-2 backdrop-blur-md rounded-lg shadow-sm border transition-colors ${showSidebar ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white/80 border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                         title="Toggle Variables"
                     >
-                        {showSidebar ? '→' : '←'} 📦
+                        📦
                     </button>
                 </div>
 
@@ -303,7 +306,6 @@ const Canvas: React.FC = () => {
                                 strokeWidth="2"
                                 fill="none"
                                 markerEnd="url(#arrowhead)"
-                                strokeDasharray="4 4"
                             />
                         ))}
                     </svg>
@@ -315,11 +317,12 @@ const Canvas: React.FC = () => {
                                 block={block}
                                 scale={zoom}
                                 onResize={(size) => updateBlock(block.id, { size })}
+                                onDelete={() => removeBlock(block.id)}
                             >
                                 {block.type === 'text' && (
                                     <TextBlock
                                         block={block}
-                                        onChange={(content) => updateBlock(block.id, { content })}
+                                        onChange={(updates) => updateBlock(block.id, updates)}
                                     />
                                 )}
                                 {block.type === 'script' && (
@@ -352,21 +355,31 @@ const Canvas: React.FC = () => {
                                         onChange={(updates) => updateBlock(block.id, updates)}
                                     />
                                 )}
+                                {block.type === 'cad' && (
+                                    <CADBlock
+                                        id={block.id}
+                                        content={block.content}
+                                        onUpdate={(content) => updateBlock(block.id, { content })}
+                                    />
+                                )}
                             </BlockWrapper>
                         ))}
                     </DndContext>
                 </div>
 
-                {blocks.length === 0 && (
-                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                        Use the toolbar to add blocks
-                    </div>
-                )}
-            </div>
+                {
+                    blocks.length === 0 && (
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                            Use the toolbar to add blocks
+                        </div>
+                    )
+                }
+            </div >
 
-            {/* Sidebar */}
+            {/* Sidebars and Chat */}
             {showSidebar && <VariableExplorer />}
-        </div>
+            <SimpleChatButton />
+        </div >
     );
 };
 

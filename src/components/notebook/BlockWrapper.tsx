@@ -13,9 +13,10 @@ interface BlockWrapperProps {
     scale: number;
     children: React.ReactNode;
     onResize: (size: { width: number; height: number }) => void;
+    onDelete?: () => void;
 }
 
-const BlockWrapper: React.FC<BlockWrapperProps> = ({ block, isSelected, scale, children, onResize }) => {
+const BlockWrapper: React.FC<BlockWrapperProps> = ({ block, isSelected, scale, children, onResize, onDelete }) => {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: block.id,
     });
@@ -30,7 +31,25 @@ const BlockWrapper: React.FC<BlockWrapperProps> = ({ block, isSelected, scale, c
         zIndex: isDragging ? 100 : 1,
     };
 
+    const [size, setSize] = React.useState({
+        width: block.size?.width || 300,
+        height: block.size?.height || 100
+    });
+
+    // Sync local state when block size changes externally
+    React.useEffect(() => {
+        setSize({
+            width: block.size?.width || 300,
+            height: block.size?.height || 100
+        });
+    }, [block.size?.width, block.size?.height]);
+
     const handleResize = (e: React.SyntheticEvent, data: ResizeCallbackData) => {
+        setSize(data.size);
+    };
+
+    const handleResizeStop = (e: React.SyntheticEvent, data: ResizeCallbackData) => {
+        setSize(data.size);
         onResize(data.size);
     };
 
@@ -41,9 +60,10 @@ const BlockWrapper: React.FC<BlockWrapperProps> = ({ block, isSelected, scale, c
             className={`transition-all duration-200 ease-out ${isDragging ? 'z-50 scale-105' : ''}`}
         >
             <ResizableBox
-                width={block.size?.width || 300}
-                height={block.size?.height || 100}
-                onResizeStop={handleResize}
+                width={size.width}
+                height={size.height}
+                onResize={handleResize}
+                onResizeStop={handleResizeStop}
                 minConstraints={[150, 80]}
                 maxConstraints={[1200, 1000]}
                 transformScale={scale}
@@ -69,6 +89,24 @@ const BlockWrapper: React.FC<BlockWrapperProps> = ({ block, isSelected, scale, c
                     >
                         <div className="w-12 h-1 bg-gray-200 rounded-full mt-2 shadow-sm" />
                     </div>
+
+                    {/* Delete Button */}
+                    {onDelete && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete();
+                            }}
+                            className="absolute top-2 right-2 z-[60] p-1.5 rounded-full bg-white/80 hover:bg-red-50 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all shadow-sm border border-transparent hover:border-red-100"
+                            title="Delete block"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M3 6h18"></path>
+                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                            </svg>
+                        </button>
+                    )}
 
                     {/* Content Area */}
                     <div className="flex-1 w-full h-full overflow-hidden">
