@@ -60,6 +60,9 @@ export interface DataImportBlock extends BaseBlock {
     type: 'data';
     content: any[];
     variableName?: string;
+    fileName?: string;
+    data?: any;
+    selectedSheet?: string;
 }
 
 export interface CADBlock extends BaseBlock {
