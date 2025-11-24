@@ -72,16 +72,15 @@ const BlockWrapper: React.FC<BlockWrapperProps> = ({ block, isSelected, scale, c
                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--text-secondary-color)' }} />
                     </div>
                 }
-                className={`group relative rounded-xl transition-all duration-200 border
+                className={`group relative rounded-xl transition-all duration-300 glass
                     ${isSelected
-                        ? 'ring-2 shadow-lg'
-                        : 'shadow-sm hover:shadow-md'
+                        ? 'ring-2 ring-accent shadow-lg'
+                        : 'hover:shadow-md'
                     }
-                    ${isDragging ? 'shadow-xl ring-2' : ''}
+                    ${isDragging ? 'shadow-2xl ring-2 ring-accent scale-105' : ''}
                 `}
                 style={{
-                    backgroundColor: 'var(--surface-color)',
-                    borderColor: isSelected ? 'var(--accent-color)' : 'var(--border-color)',
+                    borderColor: isSelected ? 'var(--accent-color)' : undefined,
                     '--tw-ring-color': 'var(--accent-color)'
                 } as React.CSSProperties}
             >

@@ -32,11 +32,7 @@ const Sidebar: React.FC = () => {
 
     return (
         <div
-            className="w-72 flex flex-col h-full shadow-xl z-20 backdrop-blur-md border-l transition-colors duration-300"
-            style={{
-                backgroundColor: 'var(--surface-color)',
-                borderColor: 'var(--border-color)'
-            }}
+            className="w-72 flex flex-col h-full z-20 transition-colors duration-300 glass-heavy border-l"
         >
             {/* Variable Explorer Section */}
             <div className="flex-1 overflow-hidden flex flex-col">

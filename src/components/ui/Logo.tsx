@@ -21,7 +21,7 @@ const Logo: React.FC<LogoProps> = ({ className = '', showText = true, size = 32 
                 />
             </div>
             {showText && (
-                <h1 className="font-bold text-xl tracking-tight" style={{ color: 'var(--text-color)' }}>
+                <h1 className="font-bold text-lg tracking-tight" style={{ color: 'var(--text-color)' }}>
                     FlowSheet
                 </h1>
             )}

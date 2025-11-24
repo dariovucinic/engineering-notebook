@@ -42,6 +42,7 @@ export interface FormulaBlock extends BaseBlock {
     type: 'formula';
     content: string;
     variableName?: string;
+    style?: BlockStyle;
 }
 
 export interface ImageBlock extends BaseBlock {

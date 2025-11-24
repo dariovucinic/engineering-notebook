@@ -31,7 +31,7 @@ const ThemeSwitcher: React.FC = () => {
         <div className="relative" ref={dropdownRef}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors w-full text-left"
+                className="flex items-center gap-2 px-2.5 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors w-full text-left"
                 style={{ color: 'var(--text-color)' }}
             >
                 <span className="text-lg">{currentTheme.icon}</span>
@@ -48,9 +48,8 @@ const ThemeSwitcher: React.FC = () => {
 
             {isOpen && (
                 <div
-                    className="absolute top-full right-0 w-48 mt-2 py-1 rounded-lg shadow-xl border backdrop-blur-sm z-50 overflow-hidden"
+                    className="absolute top-full right-0 w-48 mt-2 py-1 rounded-xl glass z-50 overflow-hidden"
                     style={{
-                        backgroundColor: 'var(--surface-color)',
                         borderColor: 'var(--border-color)'
                     }}
                 >

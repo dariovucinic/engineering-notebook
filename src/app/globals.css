@@ -39,3 +39,33 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+@layer utilities {
+  .glass {
+    background: color-mix(in srgb, var(--surface-color), transparent 20%);
+    backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid color-mix(in srgb, var(--border-color), transparent 40%);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03);
+  }
+
+  .glass-heavy {
+    background: color-mix(in srgb, var(--surface-color), transparent 10%);
+    backdrop-filter: blur(24px) saturate(180%);
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color), transparent 40%);
+    box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.05);
+  }
+
+  .glass-button {
+    background: color-mix(in srgb, var(--surface-color), transparent 50%);
+    backdrop-filter: blur(8px);
+    border: 1px solid color-mix(in srgb, var(--border-color), transparent 60%);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .glass-button:hover {
+    background: color-mix(in srgb, var(--accent-color), transparent 85%);
+    border-color: var(--accent-color);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
+}
