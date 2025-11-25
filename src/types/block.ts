@@ -60,7 +60,7 @@ export interface ImageBlock extends BaseBlock {
 
 export interface TableBlock extends BaseBlock {
     type: 'table';
-    content: string[][];
+    content: (string | number)[][];
     variableName?: string;
     style?: BlockStyle;
 }
