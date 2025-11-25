@@ -36,31 +36,32 @@ const FormulaBlock: React.FC<FormulaBlockProps> = ({ block, onChange }) => {
     const inputRef = useRef<HTMLTextAreaElement>(null);
 
     useEffect(() => {
-        if (!block.content.trim()) {
+        if (!block.content?.trim()) {
             setResults([]);
             return;
         }
 
-        const res = evaluateFormula(block.content);
+        try {
+            const res = evaluateFormula(block.content);
 
-        // Handle mathjs ResultSet or single result
-        let newResults: any[] = [];
-        if (res && typeof res === 'object' && 'entries' in res) {
-            newResults = res.entries;
-        } else {
-            // If it's a single result, we need to map it to the correct line.
-            // If there are multiple lines but only one result (e.g. only last line is an expression),
-            // mathjs might just return that one result.
-            // However, usually mathjs returns a ResultSet if the input has newlines.
-            // Let's assume if it's not a ResultSet, it corresponds to the last line or the only line.
-            newResults = [res];
-        }
+            // Handle mathjs ResultSet or single result
+            let newResults: any[] = [];
+            if (res && typeof res === 'object' && 'entries' in res && Array.isArray(res.entries)) {
+                newResults = res.entries;
+            } else if (res !== undefined) {
+                // If it's a single result, we need to map it to the correct line.
+                newResults = [res];
+            }
 
-        setResults(newResults);
+            setResults(newResults);
 
-        // Store result in scope if variable name is provided (only for single line/result)
-        if (block.variableName && block.variableName.trim() && newResults.length === 1) {
-            scope.current[block.variableName.trim()] = newResults[0];
+            // Store result in scope if variable name is provided (only for single line/result)
+            if (block.variableName && block.variableName.trim() && newResults.length === 1) {
+                scope.current[block.variableName.trim()] = newResults[0];
+            }
+        } catch (err) {
+            console.error("Error evaluating formula:", err);
+            setResults([]);
         }
     }, [block.content, block.variableName, evaluateFormula, scope, scopeVersion]);
 
@@ -92,13 +93,25 @@ const FormulaBlock: React.FC<FormulaBlockProps> = ({ block, onChange }) => {
             // Handles: numbers, variables, and parenthesized expressions
             latex = latex.replace(/([a-zA-Z0-9]+|\([^)]+\))\/([a-zA-Z0-9]+|\([^)]+\))/g, '\\frac{$1}{$2}');
 
+            // Greek letters map
+            const greekMap: Record<string, string> = {
+                alpha: '\\alpha', beta: '\\beta', gamma: '\\gamma', delta: '\\delta', epsilon: '\\epsilon',
+                zeta: '\\zeta', eta: '\\eta', theta: '\\theta', iota: '\\iota', kappa: '\\kappa',
+                lambda: '\\lambda', mu: '\\mu', nu: '\\nu', xi: '\\xi', omicron: 'o',
+                pi: '\\pi', rho: '\\rho', sigma: '\\sigma', tau: '\\tau', upsilon: '\\upsilon',
+                phi: '\\phi', chi: '\\chi', psi: '\\psi', omega: '\\omega',
+                // Uppercase
+                Gamma: '\\Gamma', Delta: '\\Delta', Theta: '\\Theta', Lambda: '\\Lambda',
+                Xi: '\\Xi', Pi: '\\Pi', Sigma: '\\Sigma', Upsilon: '\\Upsilon',
+                Phi: '\\Phi', Psi: '\\Psi', Omega: '\\Omega'
+            };
+
+            // Replace Greek letters (whole words only)
+            latex = latex.replace(new RegExp(`\\b(${Object.keys(greekMap).join('|')})\\b`, 'g'), (match) => greekMap[match]);
+
             // Convert remaining operators
             latex = latex
                 .replace(/\*/g, '\\cdot ')
-                .replace(/pi/g, '\\pi')
-                .replace(/theta/g, '\\theta')
-                .replace(/alpha/g, '\\alpha')
-                .replace(/beta/g, '\\beta')
                 .replace(/sqrt\(([^)]+)\)/g, '\\sqrt{$1}')
                 .replace(/\^/g, '^');
 

@@ -17,6 +17,7 @@ const math = create(all);
 interface ComputationContextType {
     runScript: (code: string, language?: 'python' | 'r') => Promise<any>;
     evaluateFormula: (expression: string) => any;
+    updateVariable: (name: string, value: any) => void;
     scope: React.MutableRefObject<Record<string, any>>;
     scopeVersion: number;
     pyodideReady: boolean;
@@ -152,14 +153,32 @@ export const ComputationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const evaluateFormula = useCallback((expression: string) => {
         try {
             if (!expression.trim()) return '';
-            return math.evaluate(expression, scope.current);
+            // Convert arrays to math.js matrices for proper indexing
+            const matrixScope: Record<string, any> = {};
+            for (const [key, value] of Object.entries(scope.current)) {
+                if (Array.isArray(value) && value.length > 0 && Array.isArray(value[0])) {
+                    // 2D array - convert to matrix
+                    matrixScope[key] = math.matrix(value);
+                } else if (Array.isArray(value)) {
+                    // 1D array - convert to matrix
+                    matrixScope[key] = math.matrix(value);
+                } else {
+                    matrixScope[key] = value;
+                }
+            }
+            return math.evaluate(expression, matrixScope);
         } catch (error) {
             return 'Error';
         }
     }, []);
 
+    const updateVariable = useCallback((name: string, value: any) => {
+        scope.current[name] = value;
+        setScopeVersion(prev => prev + 1);
+    }, []);
+
     return (
-        <ComputationContext.Provider value={{ runScript, evaluateFormula, scope, scopeVersion, pyodideReady, webRReady }}>
+        <ComputationContext.Provider value={{ runScript, evaluateFormula, updateVariable, scope, scopeVersion, pyodideReady, webRReady }}>
             {children}
         </ComputationContext.Provider>
     );

@@ -8,10 +8,9 @@
  * Unauthorized copying, distribution, or use is strictly prohibited.
  */
 
-
-import React, { useState, useMemo } from 'react';
-import { DndContext, DragEndEvent, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
-import { useNotebook } from '@/hooks/useNotebook';
+import React, { useState, useRef, useEffect } from 'react';
+import { DndContext, useSensor, useSensors, PointerSensor, DragEndEvent } from '@dnd-kit/core';
+import { Block, BlockType } from '@/types/block';
 import BlockWrapper from './BlockWrapper';
 import TextBlock from './blocks/TextBlock';
 import ScriptBlock from './blocks/ScriptBlock';
@@ -20,36 +19,43 @@ import ImageBlock from './blocks/ImageBlock';
 import TableBlock from './blocks/TableBlock';
 import DataImportBlock from './blocks/DataImportBlock';
 import CADBlock from './blocks/CADBlock';
-import { BlockType, Block } from '@/types/block';
-import { ExportManager } from '@/utils/ExportManager';
-import Sidebar from './Sidebar';
 import LeftSidebar from './LeftSidebar';
+import Sidebar from './Sidebar';
+import NotebookTabs from './NotebookTabs';
+import { NotebookProvider, useNotebookContext } from '@/contexts/NotebookContext';
+import ThemeSwitcher from '@/components/ui/ThemeSwitcher';
 import SimpleChatButton from './SimpleChatButton';
-import ThemeSwitcher from '../ui/ThemeSwitcher';
 
-// ... (imports remain same)
+// Inner Canvas component that consumes the context
+const CanvasContent: React.FC = () => {
+    const {
+        activeNotebook,
+        addBlock,
+        updateBlock,
+        removeBlock
+    } = useNotebookContext();
 
-const Canvas: React.FC = () => {
-    const { blocks, addBlock, updateBlock, removeBlock } = useNotebook();
-    const [zoom, setZoom] = React.useState(1);
-    const [pan, setPan] = React.useState({ x: 0, y: 0 });
-    const [isSpacePressed, setIsSpacePressed] = React.useState(false);
-    const [isPanning, setIsPanning] = React.useState(false);
-    const [showExportMenu, setShowExportMenu] = React.useState(false);
+    const blocks = activeNotebook?.blocks || [];
+
+    const [zoom, setZoom] = useState(1);
+    const [pan, setPan] = useState({ x: 0, y: 0 });
+    const [isPanning, setIsPanning] = useState(false);
+    const [isSpacePressed, setIsSpacePressed] = useState(false);
+    const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
     const [showSidebar, setShowSidebar] = useState(true);
     const [showDependencies, setShowDependencies] = useState(true);
+    const [showExportMenu, setShowExportMenu] = useState(false);
+    const canvasRef = useRef<HTMLDivElement>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 8, // Minimum distance to trigger drag
+                distance: 8,
             },
         })
     );
 
-    // ... (useEffect and dependencyLines remain same) ...
-
-    React.useEffect(() => {
+    useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.code === 'Space' && !e.repeat && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
                 e.preventDefault();
@@ -70,8 +76,63 @@ const Canvas: React.FC = () => {
         };
     }, []);
 
-    // Calculate dependencies
-    const dependencyLines = useMemo(() => {
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, delta } = event;
+        const id = active.id as string;
+        const block = blocks.find((b) => b.id === id);
+
+        if (block) {
+            updateBlock(id, {
+                position: {
+                    x: block.position.x + delta.x / zoom,
+                    y: block.position.y + delta.y / zoom,
+                },
+            });
+        }
+    };
+
+    const handleWheel = (e: React.WheelEvent) => {
+        if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            const scale = e.deltaY > 0 ? 0.9 : 1.1;
+            setZoom((prev) => Math.min(Math.max(prev * scale, 0.1), 5));
+        } else {
+            if (!isSpacePressed) {
+                setPan((prev) => ({
+                    x: prev.x - e.deltaX,
+                    y: prev.y - e.deltaY,
+                }));
+            }
+        }
+    };
+
+    const handlePointerDown = (e: React.PointerEvent) => {
+        if (isSpacePressed || e.button === 1 || (e.button === 0 && e.altKey)) {
+            setIsPanning(true);
+            setLastMousePos({ x: e.clientX, y: e.clientY });
+            e.currentTarget.setPointerCapture(e.pointerId);
+            e.preventDefault();
+        }
+    };
+
+    const handlePointerMove = (e: React.PointerEvent) => {
+        if (isPanning) {
+            setPan(prev => ({
+                x: prev.x + e.movementX,
+                y: prev.y + e.movementY
+            }));
+        }
+    };
+
+    const handlePointerUp = (e: React.PointerEvent) => {
+        if (isPanning) {
+            setIsPanning(false);
+            e.currentTarget.releasePointerCapture(e.pointerId);
+        }
+    };
+
+    // Calculate dependency lines
+    const dependencyLines = React.useMemo(() => {
         if (!showDependencies) return [];
 
         const producerMap = new Map<string, Block>();
@@ -115,283 +176,215 @@ const Canvas: React.FC = () => {
         return lines;
     }, [blocks, showDependencies]);
 
-    const handleAddBlock = (type: BlockType) => {
-        const viewportCenter = {
-            x: (window.innerWidth / 2 - pan.x) / zoom,
-            y: (window.innerHeight / 2 - pan.y) / zoom
-        };
-        addBlock(type, { x: viewportCenter.x - 150, y: viewportCenter.y - 50 });
-    };
-
-    const handleDragEnd = (event: DragEndEvent) => {
-        const { active, delta } = event;
-        const blockId = active.id as string;
-        const block = blocks.find(b => b.id === blockId);
-
-        if (block) {
-            updateBlock(blockId, {
-                position: {
-                    x: block.position.x + (delta.x / zoom),
-                    y: block.position.y + (delta.y / zoom),
-                },
-            });
-        }
-    };
-
-    const handlePointerDown = (e: React.PointerEvent) => {
-        if (isSpacePressed) {
-            setIsPanning(true);
-            e.currentTarget.setPointerCapture(e.pointerId);
-        }
-    };
-
-    const handlePointerMove = (e: React.PointerEvent) => {
-        if (isPanning) {
-            setPan(prev => ({
-                x: prev.x + e.movementX,
-                y: prev.y + e.movementY
-            }));
-        }
-    };
-
-    const handlePointerUp = (e: React.PointerEvent) => {
-        if (isPanning) {
-            setIsPanning(false);
-            e.currentTarget.releasePointerCapture(e.pointerId);
-        }
-    };
-
-    const handleWheel = (e: React.WheelEvent) => {
-        if (e.ctrlKey) {
-            e.preventDefault();
-            const zoomSensitivity = 0.001;
-            const newZoom = Math.min(Math.max(0.1, zoom - e.deltaY * zoomSensitivity), 5);
-            setZoom(newZoom);
-        } else {
-            if (!isSpacePressed) {
-                setPan(prev => ({
-                    x: prev.x - e.deltaX,
-                    y: prev.y - e.deltaY
-                }));
-            }
-        }
-    };
-
     return (
-        <div className="flex w-full h-screen overflow-hidden">
-            {/* Left Sidebar - Block Palette */}
-            <LeftSidebar onAddBlock={handleAddBlock} />
+        <div className="flex h-screen w-screen overflow-hidden bg-[var(--bg-color)] text-[var(--text-color)]">
+            {/* Left Sidebar */}
+            <LeftSidebar onAddBlock={(type) => {
+                // Center of the current view
+                const centerX = (-pan.x + window.innerWidth / 2) / zoom;
+                const centerY = (-pan.y + window.innerHeight / 2) / zoom;
+                addBlock(type, { x: centerX - 150, y: centerY - 50 });
+            }} />
 
-            <div className="flex flex-1 overflow-hidden relative flex-col">
-                <div className="flex flex-1 overflow-hidden relative">
-                    {/* Main Canvas Area */}
-                    <div
-                        className={`relative flex-1 h-full overflow-hidden ${isSpacePressed ? 'cursor-grab' : ''} ${isPanning ? 'cursor-grabbing' : ''}`}
-                        style={{ backgroundColor: 'var(--bg-color)' }}
-                        onWheel={handleWheel}
-                        onPointerDown={handlePointerDown}
-                        onPointerMove={handlePointerMove}
-                        onPointerUp={handlePointerUp}
-                        onPointerLeave={handlePointerUp}
-                    >
-                        {/* Background Grid */}
-                        <div className="absolute inset-0 pointer-events-none opacity-10"
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-col h-full relative">
+                {/* Top Controls */}
+                <div className="absolute top-3 right-4 z-50 flex gap-2 items-center">
+                    <ThemeSwitcher />
+                    <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1" />
+
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowExportMenu(!showExportMenu)}
+                            className={`p-2 backdrop-blur-md rounded-lg shadow-sm border transition-colors`}
                             style={{
-                                backgroundImage: 'radial-gradient(var(--grid-color) 1px, transparent 1px)',
-                                backgroundSize: `${20 * zoom}px ${20 * zoom}px`,
-                                backgroundPosition: `${pan.x}px ${pan.y}px`
+                                backgroundColor: 'var(--surface-color)',
+                                borderColor: 'var(--border-color)',
+                                color: 'var(--text-color)'
                             }}
-                        />
-
-                        {/* Zoom Indicator */}
-                        <div className="absolute bottom-8 right-8 z-50 px-3 py-1 bg-white/80 backdrop-blur-md rounded-full shadow-sm border border-slate-200 text-xs font-mono text-slate-600">
-                            {Math.round(zoom * 100)}%
-                        </div>
-
-                        {/* Top Right Controls */}
-                        <div className="absolute top-4 right-4 z-50 flex gap-2 items-center">
-                            <ThemeSwitcher />
-                            <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1" />
-
-                            <div className="relative">
-                                <button
-                                    onClick={() => setShowExportMenu(!showExportMenu)}
-                                    className={`p-2 backdrop-blur-md rounded-lg shadow-sm border transition-colors`}
-                                    style={{
-                                        backgroundColor: 'var(--surface-color)',
-                                        borderColor: 'var(--border-color)',
-                                        color: 'var(--text-color)'
-                                    }}
-                                    title="Export"
-                                >
-                                    📥
-                                </button>
-                                {showExportMenu && (
-                                    <>
-                                        <div
-                                            className="fixed inset-0 z-40"
-                                            onClick={() => setShowExportMenu(false)}
-                                        />
-                                        <div className="absolute top-full right-0 mt-2 w-32 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                                            <button
-                                                onClick={() => {
-                                                    ExportManager.exportToPDF('canvas-content', 'notebook.pdf');
-                                                    setShowExportMenu(false);
-                                                }}
-                                                className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                                            >
-                                                <span className="text-red-500">📄</span> PDF
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    ExportManager.exportToJupyter(blocks, 'notebook.ipynb');
-                                                    setShowExportMenu(false);
-                                                }}
-                                                className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                                            >
-                                                <span className="text-orange-500">📙</span> Jupyter
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    ExportManager.exportToExcel(blocks, 'notebook.xlsx');
-                                                    setShowExportMenu(false);
-                                                }}
-                                                className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                                            >
-                                                <span className="text-green-600">📊</span> Excel
-                                            </button>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-
-                            <button
-                                onClick={() => setShowDependencies(!showDependencies)}
-                                className={`p-2 backdrop-blur-md rounded-lg shadow-sm border transition-colors`}
-                                style={{
-                                    backgroundColor: showDependencies ? 'var(--accent-color)' : 'var(--surface-color)',
-                                    borderColor: showDependencies ? 'var(--accent-color)' : 'var(--border-color)',
-                                    color: showDependencies ? '#fff' : 'var(--text-color)'
-                                }}
-                                title="Toggle Dependencies"
-                            >
-                                🔗
-                            </button>
-                            <button
-                                onClick={() => setShowSidebar(!showSidebar)}
-                                className={`p-2 backdrop-blur-md rounded-lg shadow-sm border transition-colors`}
-                                style={{
-                                    backgroundColor: showSidebar ? 'var(--accent-color)' : 'var(--surface-color)',
-                                    borderColor: showSidebar ? 'var(--accent-color)' : 'var(--border-color)',
-                                    color: showSidebar ? '#fff' : 'var(--text-color)'
-                                }}
-                                title="Toggle Variables"
-                            >
-                                📦
-                            </button>
-                        </div>
-
-                        {/* Canvas Content - Transformed */}
-                        <div
-                            id="canvas-content"
-                            style={{
-                                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-                                transformOrigin: '0 0',
-                                width: '100%',
-                                height: '100%'
-                            }}
+                            title="Export"
                         >
-                            {/* Dependency Layer */}
-                            <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-visible">
-                                <defs>
-                                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                                        <polygon points="0 0, 10 3.5, 0 7" fill="var(--grid-color)" />
-                                    </marker>
-                                </defs>
-                                {dependencyLines.map(line => (
-                                    <path
-                                        key={line.id}
-                                        d={`M ${line.start.x} ${line.start.y} C ${line.start.x + 50} ${line.start.y}, ${line.end.x - 50} ${line.end.y}, ${line.end.x} ${line.end.y}`}
-                                        stroke="var(--grid-color)"
-                                        strokeWidth="2"
-                                        fill="none"
-                                        markerEnd="url(#arrowhead)"
-                                    />
-                                ))}
-                            </svg>
-
-                            <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-                                {blocks.map((block) => (
-                                    <BlockWrapper
-                                        key={block.id}
-                                        block={block}
-                                        scale={zoom}
-                                        onResize={(size) => updateBlock(block.id, { size })}
-                                        onDelete={() => removeBlock(block.id)}
+                            📥
+                        </button>
+                        {showExportMenu && (
+                            <>
+                                <div
+                                    className="fixed inset-0 z-40"
+                                    onClick={() => setShowExportMenu(false)}
+                                />
+                                <div className="absolute top-full right-0 mt-2 w-32 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <button
+                                        onClick={() => setShowExportMenu(false)}
+                                        className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2"
                                     >
-                                        {block.type === 'text' && (
-                                            <TextBlock
-                                                block={block}
-                                                onChange={(updates) => updateBlock(block.id, updates)}
-                                            />
-                                        )}
-                                        {block.type === 'script' && (
-                                            <ScriptBlock
-                                                block={block}
-                                                onChange={(updates) => updateBlock(block.id, updates)}
-                                            />
-                                        )}
-                                        {block.type === 'formula' && (
-                                            <FormulaBlock
-                                                block={block}
-                                                onChange={(updates) => updateBlock(block.id, updates)}
-                                            />
-                                        )}
-                                        {block.type === 'image' && (
-                                            <ImageBlock
-                                                block={block}
-                                                onChange={(updates) => updateBlock(block.id, updates)}
-                                            />
-                                        )}
-                                        {block.type === 'table' && (
-                                            <TableBlock
-                                                block={block}
-                                                onChange={(updates) => updateBlock(block.id, updates)}
-                                            />
-                                        )}
-                                        {block.type === 'data' && (
-                                            <DataImportBlock
-                                                block={block}
-                                                onChange={(updates) => updateBlock(block.id, updates)}
-                                            />
-                                        )}
-                                        {block.type === 'cad' && (
-                                            <CADBlock
-                                                id={block.id}
-                                                content={block.content}
-                                                onUpdate={(content) => updateBlock(block.id, { content })}
-                                            />
-                                        )}
-                                    </BlockWrapper>
-                                ))}
-                            </DndContext>
-                        </div>
-
-                        {
-                            blocks.length === 0 && (
-                                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-secondary-color)' }}>
-                                    Select a block from the left menu to start
+                                        <span className="text-red-500">📄</span> PDF
+                                    </button>
+                                    <button
+                                        onClick={() => setShowExportMenu(false)}
+                                        className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2"
+                                    >
+                                        <span className="text-orange-500">📙</span> Jupyter
+                                    </button>
+                                    <button
+                                        onClick={() => setShowExportMenu(false)}
+                                        className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2"
+                                    >
+                                        <span className="text-green-600">📊</span> Excel
+                                    </button>
                                 </div>
-                            )
-                        }
-                    </div >
+                            </>
+                        )}
+                    </div>
+
+                    <button
+                        onClick={() => setShowDependencies(!showDependencies)}
+                        className={`p-2 backdrop-blur-md rounded-lg shadow-sm border transition-colors`}
+                        style={{
+                            backgroundColor: showDependencies ? 'var(--accent-color)' : 'var(--surface-color)',
+                            borderColor: showDependencies ? 'var(--accent-color)' : 'var(--border-color)',
+                            color: showDependencies ? '#fff' : 'var(--text-color)'
+                        }}
+                        title="Toggle Dependencies"
+                    >
+                        🔗
+                    </button>
+                    <button
+                        onClick={() => setShowSidebar(!showSidebar)}
+                        className={`p-2 backdrop-blur-md rounded-lg shadow-sm border transition-colors`}
+                        style={{
+                            backgroundColor: showSidebar ? 'var(--accent-color)' : 'var(--surface-color)',
+                            borderColor: showSidebar ? 'var(--accent-color)' : 'var(--border-color)',
+                            color: showSidebar ? '#fff' : 'var(--text-color)'
+                        }}
+                        title="Toggle Variables"
+                    >
+                        📦
+                    </button>
+                </div>
+
+                {/* Notebook Tabs */}
+                <NotebookTabs />
+
+                {/* Canvas Area */}
+                <div
+                    ref={canvasRef}
+                    className={`flex-1 relative overflow-hidden ${isSpacePressed ? 'cursor-grab' : 'cursor-crosshair'} ${isPanning ? 'cursor-grabbing' : ''}`}
+                    onWheel={handleWheel}
+                    onPointerDown={handlePointerDown}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                    onPointerLeave={handlePointerUp}
+                >
+                    {/* Grid Background */}
+                    <div
+                        className="absolute inset-0 pointer-events-none opacity-10"
+                        style={{
+                            backgroundImage: 'radial-gradient(var(--grid-color) 1px, transparent 1px)',
+                            backgroundSize: `${20 * zoom}px ${20 * zoom}px`,
+                            backgroundPosition: `${pan.x}px ${pan.y}px`
+                        }}
+                    />
+
+                    {/* Infinite Canvas Container */}
+                    <div
+                        className="absolute inset-0 transform-gpu"
+                        style={{
+                            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                            width: '100%',
+                            height: '100%'
+                        }}
+                    >
+                        {/* Dependency Layer */}
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-visible">
+                            <defs>
+                                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                    <polygon points="0 0, 10 3.5, 0 7" fill="var(--grid-color)" />
+                                </marker>
+                            </defs>
+                            {dependencyLines.map(line => (
+                                <path
+                                    key={line.id}
+                                    d={`M ${line.start.x} ${line.start.y} C ${line.start.x + 50} ${line.start.y}, ${line.end.x - 50} ${line.end.y}, ${line.end.x} ${line.end.y}`}
+                                    stroke="var(--grid-color)"
+                                    strokeWidth="2"
+                                    fill="none"
+                                    markerEnd="url(#arrowhead)"
+                                />
+                            ))}
+                        </svg>
+
+                        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+                            {blocks.map((block) => (
+                                <BlockWrapper
+                                    key={block.id}
+                                    block={block}
+                                    scale={zoom}
+                                    onResize={(size) => updateBlock(block.id, { size })}
+                                    onDelete={() => removeBlock(block.id)}
+                                >
+                                    {block.type === 'text' && (
+                                        <TextBlock
+                                            block={block}
+                                            onChange={(updates) => updateBlock(block.id, updates)}
+                                        />
+                                    )}
+                                    {block.type === 'script' && (
+                                        <ScriptBlock
+                                            block={block}
+                                            onChange={(updates) => updateBlock(block.id, updates)}
+                                        />
+                                    )}
+                                    {block.type === 'formula' && (
+                                        <FormulaBlock
+                                            block={block}
+                                            onChange={(updates) => updateBlock(block.id, updates)}
+                                        />
+                                    )}
+                                    {block.type === 'image' && (
+                                        <ImageBlock
+                                            block={block}
+                                            onChange={(updates) => updateBlock(block.id, updates)}
+                                        />
+                                    )}
+                                    {block.type === 'table' && (
+                                        <TableBlock
+                                            block={block}
+                                            onChange={(updates) => updateBlock(block.id, updates)}
+                                        />
+                                    )}
+                                    {block.type === 'data' && (
+                                        <DataImportBlock
+                                            block={block}
+                                            onChange={(updates) => updateBlock(block.id, updates)}
+                                        />
+                                    )}
+                                    {block.type === 'cad' && (
+                                        <CADBlock
+                                            id={block.id}
+                                            content={block.content}
+                                            onUpdate={(content) => updateBlock(block.id, { content })}
+                                        />
+                                    )}
+                                </BlockWrapper>
+                            ))}
+                        </DndContext>
+                    </div>
 
                     {/* Sidebars and Chat */}
                     {showSidebar && <Sidebar />}
                     <SimpleChatButton />
                 </div>
             </div>
-        </div >
+        </div>
+    );
+};
+
+// Main Canvas Component wrapping the content with Provider
+const Canvas: React.FC = () => {
+    return (
+        <NotebookProvider>
+            <CanvasContent />
+        </NotebookProvider>
     );
 };
 

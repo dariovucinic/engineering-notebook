@@ -9,7 +9,7 @@
  */
 
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TableBlock as TableBlockType, BlockStyle } from '@/types/block';
 import { useComputation } from '@/contexts/ComputationContext';
 import * as XLSX from 'xlsx';
@@ -21,9 +21,10 @@ interface TableBlockProps {
 }
 
 const TableBlock: React.FC<TableBlockProps> = ({ block, onChange }) => {
-    const { evaluateFormula, scope, scopeVersion } = useComputation();
+    const { evaluateFormula, updateVariable, scope, scopeVersion } = useComputation();
     const [, setUpdateTrigger] = useState(0);
     const [showFormatting, setShowFormatting] = useState(false);
+    const cellRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
     const style = block.style || {
         color: '#000000',
@@ -53,9 +54,30 @@ const TableBlock: React.FC<TableBlockProps> = ({ block, onChange }) => {
     // Sync from table to scope on mount/change
     useEffect(() => {
         if (block.variableName && block.variableName.trim()) {
-            scope.current[block.variableName.trim()] = data;
+            // Evaluate formulas before putting into scope
+            const evaluatedData = data.map(row => row.map(cell => {
+                if (typeof cell === 'string') {
+                    if (cell.startsWith('=')) {
+                        try {
+                            return evaluateFormula(cell.substring(1));
+                        } catch {
+                            return NaN;
+                        }
+                    }
+                    // Interpolate {variableName}
+                    if (cell.includes('{')) {
+                        return cell.replace(/\{(\w+)\}/g, (match, varName) => {
+                            const value = scope.current[varName];
+                            return value !== undefined ? String(value) : match;
+                        });
+                    }
+                }
+                return cell;
+            }));
+            // Use updateVariable to trigger reactivity
+            updateVariable(block.variableName.trim(), evaluatedData);
         }
-    }, [block.variableName, data]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [block.variableName, data, evaluateFormula, updateVariable]);
 
     const handleStyleChange = (newStyle: BlockStyle) => {
         onChange({ style: newStyle });
@@ -64,12 +86,82 @@ const TableBlock: React.FC<TableBlockProps> = ({ block, onChange }) => {
     const handleCellChange = (rowIndex: number, colIndex: number, value: string) => {
         const newData = [...data];
         newData[rowIndex] = [...newData[rowIndex]];
-        newData[rowIndex][colIndex] = value;
-        onChange({ content: newData });
 
-        // Update scope immediately
-        if (block.variableName && block.variableName.trim()) {
-            scope.current[block.variableName.trim()] = newData;
+        // Try to convert to number if it's a valid number and not a formula
+        let parsedValue: string | number = value;
+        if (value.trim() !== '' && !value.startsWith('=') && !isNaN(Number(value))) {
+            // Avoid converting "1." to 1 immediately while typing
+            if (!value.endsWith('.') && value !== '-') {
+                const num = Number(value);
+                if (!isNaN(num)) {
+                    parsedValue = num;
+                }
+            }
+        }
+
+        newData[rowIndex][colIndex] = parsedValue;
+        onChange({ content: newData });
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent, rowIndex: number, colIndex: number) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const nextRow = rowIndex + 1;
+            if (nextRow < data.length) {
+                cellRefs.current[`${nextRow}-${colIndex}`]?.focus();
+            } else {
+                // Optional: Add new row on Enter at bottom
+                addRow();
+                // Focus will be handled after render, tricky without effect, but let's try simple focus move first
+                setTimeout(() => cellRefs.current[`${nextRow}-${colIndex}`]?.focus(), 0);
+            }
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            const prevRow = rowIndex - 1;
+            if (prevRow >= 0) {
+                cellRefs.current[`${prevRow}-${colIndex}`]?.focus();
+            }
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            const nextRow = rowIndex + 1;
+            if (nextRow < data.length) {
+                cellRefs.current[`${nextRow}-${colIndex}`]?.focus();
+            }
+        } else if (e.key === 'ArrowLeft') {
+            // Only move if cursor is at start or selection is empty to avoid interfering with text editing
+            // For simplicity, let's require Ctrl+Arrow or just check cursor pos?
+            // Excel moves on Arrow unless in edit mode (F2). Here we are always in "edit mode".
+            // Let's use Shift+Arrow or just standard behavior?
+            // User requested "motion between cells". Usually implies not editing text.
+            // But these are inputs.
+            // Let's use Ctrl+Arrow for navigation to distinguish from text nav
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                const prevCol = colIndex - 1;
+                if (prevCol >= 0) {
+                    cellRefs.current[`${rowIndex}-${prevCol}`]?.focus();
+                }
+            }
+        } else if (e.key === 'ArrowRight') {
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                const nextCol = colIndex + 1;
+                if (nextCol < data[0].length) {
+                    cellRefs.current[`${rowIndex}-${nextCol}`]?.focus();
+                }
+            }
+        } else if (e.key === 'Tab') {
+            e.preventDefault();
+            const nextCol = colIndex + 1;
+            if (nextCol < data[0].length) {
+                cellRefs.current[`${rowIndex}-${nextCol}`]?.focus();
+            } else {
+                // Move to next row first col
+                const nextRow = rowIndex + 1;
+                if (nextRow < data.length) {
+                    cellRefs.current[`${nextRow}-0`]?.focus();
+                }
+            }
         }
     };
 
@@ -97,17 +189,11 @@ const TableBlock: React.FC<TableBlockProps> = ({ block, onChange }) => {
         const cols = data[0]?.length || 3;
         const newData = [...data, Array(cols).fill('')];
         onChange({ content: newData });
-        if (block.variableName && block.variableName.trim()) {
-            scope.current[block.variableName.trim()] = newData;
-        }
     };
 
     const addCol = () => {
         const newData = data.map(row => [...row, '']);
         onChange({ content: newData });
-        if (block.variableName && block.variableName.trim()) {
-            scope.current[block.variableName.trim()] = newData;
-        }
     };
 
     const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -147,10 +233,6 @@ const TableBlock: React.FC<TableBlockProps> = ({ block, onChange }) => {
                 onChange({ content: [['', '', ''], ['', '', ''], ['', '', '']] });
             } else {
                 onChange({ content: formattedData });
-                // Update scope immediately
-                if (block.variableName && block.variableName.trim()) {
-                    scope.current[block.variableName.trim()] = formattedData;
-                }
             }
         } catch (error) {
             console.error('Error importing Excel:', error);
@@ -203,6 +285,9 @@ const TableBlock: React.FC<TableBlockProps> = ({ block, onChange }) => {
                                     return (
                                         <td key={`${rowIndex}-${colIndex}`} className="border border-slate-100 p-0 min-w-[60px] h-8 relative group transition-colors hover:bg-slate-50">
                                             <input
+                                                ref={el => {
+                                                    cellRefs.current[`${rowIndex}-${colIndex}`] = el;
+                                                }}
                                                 className={`
                                                     w-full h-full px-2 py-1 outline-none border-none bg-transparent font-mono
                                                     ${isFormula ? 'text-indigo-600 font-medium' : 'text-slate-700'}
@@ -216,6 +301,7 @@ const TableBlock: React.FC<TableBlockProps> = ({ block, onChange }) => {
                                                 }}
                                                 value={cell === null || cell === undefined ? '' : String(cell)}
                                                 onChange={(e) => handleCellChange(rowIndex, colIndex, e.target.value)}
+                                                onKeyDown={(e) => handleKeyDown(e, rowIndex, colIndex)}
                                                 placeholder={rowIndex === 0 && colIndex === 0 ? '=' : ''}
                                             />
                                             {isFormula && (
