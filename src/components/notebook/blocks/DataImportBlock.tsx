@@ -1,5 +1,14 @@
 'use client';
 
+/**
+ * Copyright (c) 2025 Dario Vucinic - FlowSheet
+ * All rights reserved.
+ * 
+ * This source code is proprietary and confidential.
+ * Unauthorized copying, distribution, or use is strictly prohibited.
+ */
+
+
 import React, { useState, useRef } from 'react';
 import { DataImportBlock as DataImportBlockType } from '@/types/block';
 import { useComputation } from '@/contexts/ComputationContext';

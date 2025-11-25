@@ -1,3 +1,11 @@
+/**
+ * Copyright (c) 2025 Dario Vucinic - FlowSheet
+ * All rights reserved.
+ * 
+ * This source code is proprietary and confidential.
+ * Unauthorized copying, distribution, or use is strictly prohibited.
+ */
+
 export type BlockType = 'text' | 'math' | 'table' | 'image' | 'script' | 'formula' | 'data' | 'cad';
 
 export interface BlockPosition {

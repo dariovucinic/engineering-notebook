@@ -1,9 +1,19 @@
 'use client';
 
+/**
+ * Copyright (c) 2025 Dario Vucinic - FlowSheet
+ * All rights reserved.
+ * 
+ * This source code is proprietary and confidential.
+ * Unauthorized copying, distribution, or use is strictly prohibited.
+ */
+
+
 import React, { useState } from 'react';
 import { useNotebook } from '@/hooks/useNotebook';
 import { useComputation } from '@/contexts/ComputationContext';
 import ReactMarkdown from 'react-markdown';
+import { Sparkles } from 'lucide-react';
 
 interface Message {
     role: 'user' | 'assistant';
@@ -79,10 +89,28 @@ const SimpleChatButton: React.FC = () => {
             {!isOpen && (
                 <button
                     onClick={() => setIsOpen(true)}
-                    className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-110 flex items-center justify-center text-white text-2xl z-50"
+                    className="fixed bottom-6 right-6 w-16 h-16 rounded-full shadow-2xl hover:scale-110 transition-all z-50 group"
                     title="AI Assistant"
                 >
-                    ✨
+                    <div className="absolute inset-0 bg-black rounded-full border border-white/10 overflow-hidden shadow-[0_0_20px_rgba(120,100,255,0.3)]">
+                        {/* Orb Background / Glow */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-indigo-950 via-purple-950 to-slate-950" />
+
+                        {/* Moving Waves (Simulated with rotating gradients) */}
+                        <div className="absolute -inset-[50%] bg-[conic-gradient(from_0deg,transparent_0_300deg,cyan_360deg)] animate-[spin_4s_linear_infinite] opacity-40 blur-xl" />
+                        <div className="absolute -inset-[50%] bg-[conic-gradient(from_90deg,transparent_0_300deg,purple_360deg)] animate-[spin_3s_linear_infinite_reverse] opacity-40 blur-xl" />
+                        <div className="absolute -inset-[50%] bg-[conic-gradient(from_180deg,transparent_0_300deg,blue_360deg)] animate-[spin_5s_linear_infinite] opacity-40 blur-xl" />
+
+                        {/* Inner Core */}
+                        <div className="absolute inset-1 bg-black/40 rounded-full backdrop-blur-[1px] flex items-center justify-center overflow-hidden">
+                            {/* Central Light */}
+                            <div className="absolute w-full h-full bg-[radial-gradient(circle_at_50%_50%,rgba(200,200,255,0.1),transparent_60%)]" />
+                        </div>
+
+                        {/* Glass Reflection */}
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.5),transparent_25%)]" />
+                        <div className="absolute inset-0 shadow-[inset_0_0_15px_rgba(255,255,255,0.1)] rounded-full" />
+                    </div>
                 </button>
             )}
 
@@ -116,8 +144,6 @@ const SimpleChatButton: React.FC = () => {
                         )}
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-
-
                                 <div
                                     className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${msg.role === 'user'
                                         ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white'

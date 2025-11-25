@@ -1,3 +1,11 @@
+/**
+ * Copyright (c) 2025 Dario Vucinic - FlowSheet
+ * All rights reserved.
+ * 
+ * This source code is proprietary and confidential.
+ * Unauthorized copying, distribution, or use is strictly prohibited.
+ */
+
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";

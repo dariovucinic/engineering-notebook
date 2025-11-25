@@ -68,4 +68,19 @@ body {
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   }
+
+  /* KaTeX color inheritance for theme support */
+  .katex {
+    color: inherit !important;
+  }
+
+  .katex .mord,
+  .katex .mbin,
+  .katex .mrel,
+  .katex .mop,
+  .katex .mpunct,
+  .katex .mopen,
+  .katex .mclose {
+    color: inherit !important;
+  }
 }

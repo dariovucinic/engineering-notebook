@@ -86,15 +86,23 @@ const FormulaBlock: React.FC<FormulaBlockProps> = ({ block, onChange }) => {
 
     const getLatex = (expression: string) => {
         try {
-            return expression
+            let latex = expression;
+
+            // Convert divisions to fractions: a/b -> \frac{a}{b}
+            // Handles: numbers, variables, and parenthesized expressions
+            latex = latex.replace(/([a-zA-Z0-9]+|\([^)]+\))\/([a-zA-Z0-9]+|\([^)]+\))/g, '\\frac{$1}{$2}');
+
+            // Convert remaining operators
+            latex = latex
                 .replace(/\*/g, '\\cdot ')
-                .replace(/\//g, '\\div ')
                 .replace(/pi/g, '\\pi')
                 .replace(/theta/g, '\\theta')
                 .replace(/alpha/g, '\\alpha')
                 .replace(/beta/g, '\\beta')
                 .replace(/sqrt\(([^)]+)\)/g, '\\sqrt{$1}')
                 .replace(/\^/g, '^');
+
+            return latex;
         } catch (e) {
             return expression;
         }
@@ -178,8 +186,9 @@ const FormulaBlock: React.FC<FormulaBlockProps> = ({ block, onChange }) => {
 
     return (
         <div
-            className="relative group flex flex-col h-full bg-white dark:bg-slate-900 rounded-lg overflow-visible"
+            className="relative group flex flex-col h-full rounded-lg overflow-visible"
             style={{
+                backgroundColor: 'var(--surface-color)',
                 color: block.style?.color || 'var(--text-color)',
                 fontSize: block.style?.fontSize || '1rem',
             }}
@@ -226,15 +235,23 @@ const FormulaBlock: React.FC<FormulaBlockProps> = ({ block, onChange }) => {
                 {isEditing ? (
                     <div className="flex items-start gap-2 w-full">
                         <input
-                            className="w-16 font-mono text-sm outline-none border-b border-gray-300 focus:border-indigo-500 bg-transparent text-right pt-1"
+                            className="w-16 font-mono text-sm outline-none border-b focus:border-indigo-500 bg-transparent text-right pt-1"
+                            style={{
+                                color: 'var(--text-color)',
+                                borderColor: 'var(--border-color)'
+                            }}
                             value={block.variableName || ''}
                             onChange={(e) => onChange({ variableName: e.target.value })}
                             placeholder="var"
                         />
-                        <span className="font-mono pt-1">=</span>
+                        <span className="font-mono pt-1" style={{ color: 'var(--text-color)' }}>=</span>
                         <textarea
                             ref={inputRef}
-                            className="flex-1 font-mono text-sm outline-none border-b border-gray-300 focus:border-indigo-500 bg-transparent resize-none overflow-hidden min-h-[1.5rem]"
+                            className="flex-1 font-mono text-sm outline-none border-b focus:border-indigo-500 bg-transparent resize-none overflow-hidden min-h-[1.5rem]"
+                            style={{
+                                color: 'var(--text-color)',
+                                borderColor: 'var(--border-color)'
+                            }}
                             value={block.content}
                             onChange={(e) => {
                                 onChange({ content: e.target.value });
@@ -258,7 +275,7 @@ const FormulaBlock: React.FC<FormulaBlockProps> = ({ block, onChange }) => {
                         {block.content ? (
                             <InlineMath math={getDisplayLatex()} />
                         ) : (
-                            <span className="text-gray-400 italic text-sm">Write variables, formulas and operations...</span>
+                            <span className="italic text-sm" style={{ color: 'var(--text-secondary-color)' }}>Write variables, formulas and operations...</span>
                         )}
                     </div>
                 )}

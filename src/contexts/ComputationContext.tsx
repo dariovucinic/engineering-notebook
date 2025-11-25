@@ -1,5 +1,14 @@
 'use client';
 
+/**
+ * Copyright (c) 2025 Dario Vucinic - FlowSheet
+ * All rights reserved.
+ * 
+ * This source code is proprietary and confidential.
+ * Unauthorized copying, distribution, or use is strictly prohibited.
+ */
+
+
 import React, { createContext, useContext, useRef, useCallback, useState, useEffect } from 'react';
 import { create, all } from 'mathjs';
 

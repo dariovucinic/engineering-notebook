@@ -1,5 +1,14 @@
 'use client';
 
+/**
+ * Copyright (c) 2025 Dario Vucinic - FlowSheet
+ * All rights reserved.
+ * 
+ * This source code is proprietary and confidential.
+ * Unauthorized copying, distribution, or use is strictly prohibited.
+ */
+
+
 import React, { useState } from 'react';
 import { ScriptBlock as ScriptBlockType } from '@/types/block';
 import { useComputation } from '@/contexts/ComputationContext';
@@ -28,16 +37,16 @@ const ScriptBlock: React.FC<ScriptBlockProps> = ({ block, onChange }) => {
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-50 rounded-lg overflow-hidden">
-            <div className="flex justify-between items-center p-3 bg-white border-b border-slate-100">
+        <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900 rounded-lg overflow-hidden">
+            <div className="flex justify-between items-center p-3 bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 px-2 py-1 bg-slate-100 rounded-md">
-                        <span className="text-xs font-bold text-slate-500 tracking-wider">SCRIPT</span>
+                    <div className="flex items-center gap-2 px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded-md">
+                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider">SCRIPT</span>
                     </div>
                     <select
                         value={language}
                         onChange={(e) => handleLanguageChange(e.target.value as 'python' | 'r')}
-                        className="text-xs font-medium text-slate-700 bg-transparent outline-none cursor-pointer hover:text-indigo-600 transition-colors"
+                        className="text-xs font-medium text-slate-700 dark:text-slate-300 bg-transparent outline-none cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
                     >
                         <option value="python" disabled={!pyodideReady}>
                             Python {!pyodideReady && '(loading...)'}
@@ -77,9 +86,9 @@ const ScriptBlock: React.FC<ScriptBlockProps> = ({ block, onChange }) => {
                 />
             </div>
             {block.output && (
-                <div className="max-h-[40%] overflow-auto p-3 bg-white border-t border-slate-100">
-                    <div className="text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Output</div>
-                    <div className="font-mono text-xs text-slate-700 whitespace-pre-wrap break-words">
+                <div className="max-h-[40%] overflow-auto p-3 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700">
+                    <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 mb-1 uppercase tracking-wider">Output</div>
+                    <div className="font-mono text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-words">
                         {block.output}
                     </div>
                 </div>

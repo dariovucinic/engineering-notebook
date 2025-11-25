@@ -1,3 +1,11 @@
+/**
+ * Copyright (c) 2025 Dario Vucinic - FlowSheet
+ * All rights reserved.
+ * 
+ * This source code is proprietary and confidential.
+ * Unauthorized copying, distribution, or use is strictly prohibited.
+ */
+
 import { Block } from '@/types/block';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';

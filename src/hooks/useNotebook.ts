@@ -1,3 +1,11 @@
+/**
+ * Copyright (c) 2025 Dario Vucinic - FlowSheet
+ * All rights reserved.
+ * 
+ * This source code is proprietary and confidential.
+ * Unauthorized copying, distribution, or use is strictly prohibited.
+ */
+
 import { useState, useCallback } from 'react';
 import { Block, BlockType } from '@/types/block';
 import { v4 as uuidv4 } from 'uuid';

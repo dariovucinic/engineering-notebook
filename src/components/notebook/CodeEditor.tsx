@@ -1,5 +1,14 @@
 'use client';
 
+/**
+ * Copyright (c) 2025 Dario Vucinic - FlowSheet
+ * All rights reserved.
+ * 
+ * This source code is proprietary and confidential.
+ * Unauthorized copying, distribution, or use is strictly prohibited.
+ */
+
+
 import React, { useEffect, useRef } from 'react';
 import { EditorView, basicSetup } from 'codemirror';
 import { EditorState } from '@codemirror/state';
@@ -84,7 +93,15 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, language = 'py
         }
     }, [value]);
 
-    return <div ref={editorRef} className="h-full w-full" />;
+    return (
+        <div
+            ref={editorRef}
+            className="h-full w-full"
+            onKeyDown={(e) => e.stopPropagation()}
+            onKeyUp={(e) => e.stopPropagation()}
+            onKeyPress={(e) => e.stopPropagation()}
+        />
+    );
 };
 
 export default CodeEditor;
