@@ -116,7 +116,7 @@ const NotebookTabs: React.FC = () => {
 
                 {/* New Notebook Button */}
                 <button
-                    onClick={createNotebook}
+                    onClick={() => createNotebook()}
                     className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-500 hover:text-blue-600 transition-colors"
                     title="New Notebook"
                 >

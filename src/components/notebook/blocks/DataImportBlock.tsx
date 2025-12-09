@@ -52,7 +52,7 @@ const DataImportBlock: React.FC<DataImportBlockProps> = ({ block, onChange }) =>
             // Set preview from first sheet
             const firstSheet = sheetNames[0];
             const firstSheetData = parsedData[firstSheet];
-            setPreview(firstSheetData.slice(0, 5)); // First 5 rows
+            setPreview(firstSheetData); // Show all rows
 
             // Update block
             onChange({
@@ -86,7 +86,7 @@ const DataImportBlock: React.FC<DataImportBlockProps> = ({ block, onChange }) =>
     const handleSheetChange = (sheetName: string) => {
         onChange({ selectedSheet: sheetName });
         if (block.data && block.data[sheetName]) {
-            setPreview(block.data[sheetName].slice(0, 5));
+            setPreview(block.data[sheetName]);
         }
     };
 
@@ -163,7 +163,9 @@ const DataImportBlock: React.FC<DataImportBlockProps> = ({ block, onChange }) =>
                             <div className="border border-slate-200 rounded-lg overflow-hidden shadow-sm">
                                 <div className="px-3 py-2 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
                                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Preview</span>
-                                    <span className="text-[10px] text-slate-400">{preview.length} rows shown</span>
+                                    <span className="text-[10px] text-slate-400">
+                                        {preview.length} rows
+                                    </span>
                                 </div>
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-xs text-left">

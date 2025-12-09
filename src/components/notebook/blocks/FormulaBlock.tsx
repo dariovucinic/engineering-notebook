@@ -54,11 +54,6 @@ const FormulaBlock: React.FC<FormulaBlockProps> = ({ block, onChange }) => {
             }
 
             setResults(newResults);
-
-            // Store result in scope if variable name is provided (only for single line/result)
-            if (block.variableName && block.variableName.trim() && newResults.length === 1) {
-                scope.current[block.variableName.trim()] = newResults[0];
-            }
         } catch (err) {
             console.error("Error evaluating formula:", err);
             setResults([]);

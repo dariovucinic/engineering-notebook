@@ -20,8 +20,9 @@ interface ScriptBlockProps {
 }
 
 const ScriptBlock: React.FC<ScriptBlockProps> = ({ block, onChange }) => {
-    const { runScript, pyodideReady, webRReady } = useComputation();
+    const { runScript, pyodideReady, webRReady, executionCount } = useComputation();
     const [isExecuting, setIsExecuting] = useState(false);
+    const [lastExecutionCount, setLastExecutionCount] = useState<number | null>(null);
 
     const language = block.language || 'python';
 
@@ -29,6 +30,7 @@ const ScriptBlock: React.FC<ScriptBlockProps> = ({ block, onChange }) => {
         setIsExecuting(true);
         const result = await runScript(block.content, language);
         onChange({ output: result });
+        setLastExecutionCount(executionCount + 1);
         setIsExecuting(false);
     };
 
@@ -42,6 +44,9 @@ const ScriptBlock: React.FC<ScriptBlockProps> = ({ block, onChange }) => {
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded-md">
                         <span className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider">SCRIPT</span>
+                        {lastExecutionCount !== null && (
+                            <span className="text-xs font-mono text-indigo-500 ml-1">[{lastExecutionCount}]</span>
+                        )}
                     </div>
                     <select
                         value={language}
@@ -67,7 +72,7 @@ const ScriptBlock: React.FC<ScriptBlockProps> = ({ block, onChange }) => {
                         disabled:opacity-50 disabled:cursor-not-allowed
                     `}
                     disabled={isExecuting || (language === 'python' && !pyodideReady) || (language === 'r' && !webRReady)}
-                    title={isExecuting ? 'Running...' : 'Run Script'}
+                    title={isExecuting ? 'Running...' : 'Run Script (Shift+Enter)'}
                 >
                     {isExecuting ? (
                         <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -83,6 +88,7 @@ const ScriptBlock: React.FC<ScriptBlockProps> = ({ block, onChange }) => {
                     value={block.content}
                     onChange={(content) => onChange({ content })}
                     language={language === 'r' ? 'javascript' : language}
+                    onRun={handleRun}
                 />
             </div>
             {block.output && (

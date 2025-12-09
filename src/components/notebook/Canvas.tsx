@@ -23,8 +23,12 @@ import LeftSidebar from './LeftSidebar';
 import Sidebar from './Sidebar';
 import NotebookTabs from './NotebookTabs';
 import { NotebookProvider, useNotebookContext } from '@/contexts/NotebookContext';
+import { useComputation } from '@/contexts/ComputationContext';
 import ThemeSwitcher from '@/components/ui/ThemeSwitcher';
 import SimpleChatButton from './SimpleChatButton';
+import ReactDOMServer from 'react-dom/server';
+import ReportBuilder from './ReportBuilder';
+import PrintView from './PrintView';
 
 // Inner Canvas component that consumes the context
 const CanvasContent: React.FC = () => {
@@ -32,8 +36,10 @@ const CanvasContent: React.FC = () => {
         activeNotebook,
         addBlock,
         updateBlock,
-        removeBlock
+        removeBlock,
+        createNotebook
     } = useNotebookContext();
+    const { scope } = useComputation();
 
     const blocks = activeNotebook?.blocks || [];
 
@@ -44,7 +50,7 @@ const CanvasContent: React.FC = () => {
     const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
     const [showSidebar, setShowSidebar] = useState(true);
     const [showDependencies, setShowDependencies] = useState(true);
-    const [showExportMenu, setShowExportMenu] = useState(false);
+    const [showReportBuilder, setShowReportBuilder] = useState(false);
     const canvasRef = useRef<HTMLDivElement>(null);
 
     const sensors = useSensors(
@@ -131,6 +137,89 @@ const CanvasContent: React.FC = () => {
         }
     };
 
+    const handleGenerateReport = (selectedBlocks: Block[]) => {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            alert('Please allow popups to generate the report.');
+            return;
+        }
+
+        const reportHtml = ReactDOMServer.renderToString(<PrintView blocks={selectedBlocks} scope={scope.current} />);
+
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Engineering Report</title>
+                <script src="https://cdn.tailwindcss.com"></script>
+                <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css">
+                <style>
+                    @media print {
+                        body { -webkit-print-color-adjust: exact; }
+                        .break-inside-avoid { page-break-inside: avoid; }
+                    }
+                    body { font-family: 'Inter', sans-serif; }
+                </style>
+            </head>
+            <body>
+                ${reportHtml}
+                <script>
+                    // Wait for images/styles to load then print
+                    window.onload = () => {
+                        setTimeout(() => {
+                            window.print();
+                            window.close();
+                        }, 500);
+                    };
+                </script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
+
+    const handleExportJSON = (selectedBlocks: Block[]) => {
+        const data = JSON.stringify(selectedBlocks, null, 2);
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `notebook-export-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleImportNotebook = () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = (e) => {
+            const file = (e.target as HTMLInputElement).files?.[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const content = event.target?.result as string;
+                    const blocks = JSON.parse(content);
+                    if (Array.isArray(blocks)) {
+                        const notebookName = file.name.replace('.json', '');
+                        createNotebook({ name: notebookName, blocks });
+                    } else {
+                        alert('Invalid notebook format: Expected an array of blocks');
+                    }
+                } catch (err) {
+                    console.error('Failed to parse notebook file', err);
+                    alert('Invalid notebook file');
+                }
+            };
+            reader.readAsText(file);
+        };
+        input.click();
+    };
+
     // Calculate dependency lines
     const dependencyLines = React.useMemo(() => {
         if (!showDependencies) return [];
@@ -178,13 +267,25 @@ const CanvasContent: React.FC = () => {
 
     return (
         <div className="flex h-screen w-screen overflow-hidden bg-[var(--bg-color)] text-[var(--text-color)]">
+            <ReportBuilder
+                isOpen={showReportBuilder}
+                onClose={() => setShowReportBuilder(false)}
+                blocks={blocks}
+                onGenerate={handleGenerateReport}
+                onExportJSON={handleExportJSON}
+            />
+
             {/* Left Sidebar */}
-            <LeftSidebar onAddBlock={(type) => {
-                // Center of the current view
-                const centerX = (-pan.x + window.innerWidth / 2) / zoom;
-                const centerY = (-pan.y + window.innerHeight / 2) / zoom;
-                addBlock(type, { x: centerX - 150, y: centerY - 50 });
-            }} />
+            <LeftSidebar
+                onAddBlock={(type) => {
+                    // Center of the current view
+                    const centerX = (-pan.x + window.innerWidth / 2) / zoom;
+                    const centerY = (-pan.y + window.innerHeight / 2) / zoom;
+                    addBlock(type, { x: centerX - 150, y: centerY - 50 });
+                }}
+                onExport={() => setShowReportBuilder(true)}
+                onImport={handleImportNotebook}
+            />
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col h-full relative">
@@ -192,49 +293,6 @@ const CanvasContent: React.FC = () => {
                 <div className="absolute top-3 right-4 z-50 flex gap-2 items-center">
                     <ThemeSwitcher />
                     <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1" />
-
-                    <div className="relative">
-                        <button
-                            onClick={() => setShowExportMenu(!showExportMenu)}
-                            className={`p-2 backdrop-blur-md rounded-lg shadow-sm border transition-colors`}
-                            style={{
-                                backgroundColor: 'var(--surface-color)',
-                                borderColor: 'var(--border-color)',
-                                color: 'var(--text-color)'
-                            }}
-                            title="Export"
-                        >
-                            📥
-                        </button>
-                        {showExportMenu && (
-                            <>
-                                <div
-                                    className="fixed inset-0 z-40"
-                                    onClick={() => setShowExportMenu(false)}
-                                />
-                                <div className="absolute top-full right-0 mt-2 w-32 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                                    <button
-                                        onClick={() => setShowExportMenu(false)}
-                                        className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2"
-                                    >
-                                        <span className="text-red-500">📄</span> PDF
-                                    </button>
-                                    <button
-                                        onClick={() => setShowExportMenu(false)}
-                                        className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2"
-                                    >
-                                        <span className="text-orange-500">📙</span> Jupyter
-                                    </button>
-                                    <button
-                                        onClick={() => setShowExportMenu(false)}
-                                        className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2"
-                                    >
-                                        <span className="text-green-600">📊</span> Excel
-                                    </button>
-                                </div>
-                            </>
-                        )}
-                    </div>
 
                     <button
                         onClick={() => setShowDependencies(!showDependencies)}

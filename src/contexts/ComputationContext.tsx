@@ -20,6 +20,7 @@ interface ComputationContextType {
     updateVariable: (name: string, value: any) => void;
     scope: React.MutableRefObject<Record<string, any>>;
     scopeVersion: number;
+    executionCount: number;
     pyodideReady: boolean;
     webRReady: boolean;
 }
@@ -29,6 +30,7 @@ const ComputationContext = createContext<ComputationContextType | null>(null);
 export const ComputationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const scope = useRef<Record<string, any>>({});
     const [scopeVersion, setScopeVersion] = useState(0);
+    const [executionCount, setExecutionCount] = useState(0);
     const [pyodideReady, setPyodideReady] = useState(false);
     const pyodideRef = useRef<any>(null);
 
@@ -109,6 +111,7 @@ export const ComputationProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 }
 
                 setScopeVersion(prev => prev + 1);
+                setExecutionCount(prev => prev + 1);
                 return logs.length > 0 ? logs.join('\n') : 'Executed successfully (no output)';
             } else if (language === 'r') {
                 if (!webRRef.current) {
@@ -166,7 +169,31 @@ export const ComputationProvider: React.FC<{ children: React.ReactNode }> = ({ c
                     matrixScope[key] = value;
                 }
             }
-            return math.evaluate(expression, matrixScope);
+
+            const result = math.evaluate(expression, matrixScope);
+
+            // Sync back changes to scope.current
+            let scopeChanged = false;
+            for (const [key, value] of Object.entries(matrixScope)) {
+                // Skip internal mathjs properties if any (though usually clean)
+                // Convert Matrices back to arrays for consistency
+                let valToStore = value;
+                if (value && typeof value === 'object' && value.isMatrix) {
+                    valToStore = value.toArray();
+                }
+
+                // Update if new or changed
+                if (JSON.stringify(scope.current[key]) !== JSON.stringify(valToStore)) {
+                    scope.current[key] = valToStore;
+                    scopeChanged = true;
+                }
+            }
+
+            if (scopeChanged) {
+                setScopeVersion(prev => prev + 1);
+            }
+
+            return result;
         } catch (error) {
             return 'Error';
         }
@@ -178,7 +205,7 @@ export const ComputationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }, []);
 
     return (
-        <ComputationContext.Provider value={{ runScript, evaluateFormula, updateVariable, scope, scopeVersion, pyodideReady, webRReady }}>
+        <ComputationContext.Provider value={{ runScript, evaluateFormula, updateVariable, scope, scopeVersion, executionCount, pyodideReady, webRReady }}>
             {children}
         </ComputationContext.Provider>
     );

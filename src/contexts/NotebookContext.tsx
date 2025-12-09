@@ -22,11 +22,11 @@ interface NotebookContextType {
     notebooks: Notebook[];
     activeNotebookId: string;
     activeNotebook: Notebook | undefined;
-    createNotebook: () => void;
+    createNotebook: (initialData?: { name?: string, blocks?: Block[] }) => void;
     deleteNotebook: (id: string) => void;
     renameNotebook: (id: string, newName: string) => void;
     switchNotebook: (id: string) => void;
-    addBlock: (type: BlockType, position: { x: number; y: number }) => void;
+    addBlock: (type: BlockType, position: { x: number; y: number }, initialContent?: any) => void;
     updateBlock: (id: string, updates: Partial<Block>) => void;
     removeBlock: (id: string) => void;
 }
@@ -44,12 +44,12 @@ export const NotebookProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     // --- Notebook Management ---
 
-    const createNotebook = useCallback(() => {
+    const createNotebook = useCallback((initialData?: { name?: string, blocks?: Block[] }) => {
         const newId = uuidv4();
         const newNotebook: Notebook = {
             id: newId,
-            name: `Notebook ${notebooks.length + 1}`,
-            blocks: []
+            name: initialData?.name || `Notebook ${notebooks.length + 1}`,
+            blocks: initialData?.blocks || []
         };
         setNotebooks(prev => [...prev, newNotebook]);
         setActiveNotebookId(newId);
@@ -87,7 +87,7 @@ export const NotebookProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     // --- Block Management (Operates on Active Notebook) ---
 
-    const addBlock = useCallback((type: BlockType, position: { x: number; y: number }) => {
+    const addBlock = useCallback((type: BlockType, position: { x: number; y: number }, initialContent?: any) => {
         const baseBlock = {
             id: uuidv4(),
             position,
@@ -101,7 +101,7 @@ export const NotebookProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 newBlock = {
                     ...baseBlock,
                     type: 'text',
-                    content: '',
+                    content: initialContent || '',
                     style: {
                         color: 'var(--text-color)',
                         fontSize: '14px',
@@ -111,19 +111,19 @@ export const NotebookProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 };
                 break;
             case 'script':
-                newBlock = { ...baseBlock, type: 'script', content: '', output: '' };
+                newBlock = { ...baseBlock, type: 'script', content: initialContent || '', output: '' };
                 break;
             case 'formula':
-                newBlock = { ...baseBlock, type: 'formula', content: '' };
+                newBlock = { ...baseBlock, type: 'formula', content: initialContent || '' };
                 break;
             case 'image':
-                newBlock = { ...baseBlock, type: 'image', content: '' };
+                newBlock = { ...baseBlock, type: 'image', content: initialContent || '' };
                 break;
             case 'table':
                 newBlock = {
                     ...baseBlock,
                     type: 'table',
-                    content: [['', '', ''], ['', '', ''], ['', '', '']],
+                    content: initialContent || [['', '', ''], ['', '', ''], ['', '', '']],
                     style: {
                         color: 'var(--text-color)',
                         fontSize: '14px',
@@ -133,10 +133,10 @@ export const NotebookProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 };
                 break;
             case 'data':
-                newBlock = { ...baseBlock, type: 'data', content: [], size: { width: 400, height: 300 } };
+                newBlock = { ...baseBlock, type: 'data', content: initialContent || [], size: { width: 400, height: 300 } };
                 break;
             case 'cad':
-                newBlock = { ...baseBlock, type: 'cad', content: '', size: { width: 500, height: 500 } };
+                newBlock = { ...baseBlock, type: 'cad', content: initialContent || '', size: { width: 500, height: 500 } };
                 break;
             default:
                 newBlock = { ...baseBlock, type: 'text', content: '' };

@@ -12,8 +12,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TableBlock as TableBlockType, BlockStyle } from '@/types/block';
 import { useComputation } from '@/contexts/ComputationContext';
+import { useNotebookContext } from '@/contexts/NotebookContext';
 import * as XLSX from 'xlsx';
 import FormattingToolbar from '../FormattingToolbar';
+import ImportDialog from '../ImportDialog';
 
 interface TableBlockProps {
     block: TableBlockType;
@@ -22,9 +24,14 @@ interface TableBlockProps {
 
 const TableBlock: React.FC<TableBlockProps> = ({ block, onChange }) => {
     const { evaluateFormula, updateVariable, scope, scopeVersion } = useComputation();
+    const { addBlock, createNotebook } = useNotebookContext();
     const [, setUpdateTrigger] = useState(0);
     const [showFormatting, setShowFormatting] = useState(false);
     const cellRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
+
+    // Import Dialog State
+    const [importDialog, setImportDialog] = useState<{ isOpen: boolean; sheets: string[] }>({ isOpen: false, sheets: [] });
+    const workbookRef = useRef<XLSX.WorkBook | null>(null);
 
     const style = block.style || {
         color: '#000000',
@@ -128,13 +135,6 @@ const TableBlock: React.FC<TableBlockProps> = ({ block, onChange }) => {
                 cellRefs.current[`${nextRow}-${colIndex}`]?.focus();
             }
         } else if (e.key === 'ArrowLeft') {
-            // Only move if cursor is at start or selection is empty to avoid interfering with text editing
-            // For simplicity, let's require Ctrl+Arrow or just check cursor pos?
-            // Excel moves on Arrow unless in edit mode (F2). Here we are always in "edit mode".
-            // Let's use Shift+Arrow or just standard behavior?
-            // User requested "motion between cells". Usually implies not editing text.
-            // But these are inputs.
-            // Let's use Ctrl+Arrow for navigation to distinguish from text nav
             if (e.ctrlKey || e.metaKey) {
                 e.preventDefault();
                 const prevCol = colIndex - 1;
@@ -198,6 +198,25 @@ const TableBlock: React.FC<TableBlockProps> = ({ block, onChange }) => {
 
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+    const processSheet = (worksheet: XLSX.WorkSheet): (string | number)[][] => {
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+        const maxCols = jsonData.reduce((max, row) => Math.max(max, row.length), 0);
+
+        return jsonData.map(row => {
+            const newRow = new Array(maxCols).fill('');
+            row.forEach((cell, index) => {
+                if (cell === null || cell === undefined) {
+                    newRow[index] = '';
+                } else if (typeof cell === 'number') {
+                    newRow[index] = cell;
+                } else {
+                    newRow[index] = String(cell);
+                }
+            });
+            return newRow;
+        });
+    };
+
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -205,48 +224,94 @@ const TableBlock: React.FC<TableBlockProps> = ({ block, onChange }) => {
         try {
             const data = await file.arrayBuffer();
             const workbook = XLSX.read(data);
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
+            workbookRef.current = workbook;
 
-            // Find the maximum number of columns
-            const maxCols = jsonData.reduce((max, row) => Math.max(max, row.length), 0);
-
-            // Ensure data is a 2D array, padded to maxCols, preserving numeric types
-            const formattedData = jsonData.map(row => {
-                const newRow = new Array(maxCols).fill('');
-                row.forEach((cell, index) => {
-                    // Preserve numbers, convert null/undefined to empty string
-                    if (cell === null || cell === undefined) {
-                        newRow[index] = '';
-                    } else if (typeof cell === 'number') {
-                        newRow[index] = cell; // Keep as number
-                    } else {
-                        newRow[index] = String(cell);
-                    }
-                });
-                return newRow;
-            });
-
-            // If empty, default to empty 3x3
-            if (formattedData.length === 0) {
-                onChange({ content: [['', '', ''], ['', '', ''], ['', '', '']] });
+            if (workbook.SheetNames.length > 1) {
+                setImportDialog({ isOpen: true, sheets: workbook.SheetNames });
             } else {
-                onChange({ content: formattedData });
+                // Single sheet - standard import
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const formattedData = processSheet(worksheet);
+
+                if (formattedData.length === 0) {
+                    onChange({ content: [['', '', ''], ['', '', ''], ['', '', '']] });
+                } else {
+                    onChange({ content: formattedData });
+                }
             }
         } catch (error) {
             console.error('Error importing Excel:', error);
             alert('Failed to import Excel file');
         } finally {
-            // Reset input
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
             }
         }
     };
 
+    const handleImportConfirm = (mode: 'tables' | 'notebooks', selectedSheets: string[]) => {
+        if (!workbookRef.current) return;
+
+        const workbook = workbookRef.current;
+
+        // Sort sheets to match original order
+        const sortedSheets = selectedSheets.sort((a, b) =>
+            workbook.SheetNames.indexOf(a) - workbook.SheetNames.indexOf(b)
+        );
+
+        if (mode === 'tables') {
+            // First sheet populates CURRENT table
+            if (sortedSheets.length > 0) {
+                const firstSheet = sortedSheets[0];
+                const worksheet = workbook.Sheets[firstSheet];
+                const formattedData = processSheet(worksheet);
+                onChange({ content: formattedData, variableName: firstSheet.replace(/\s+/g, '_') });
+
+                // Remaining sheets create NEW tables
+                sortedSheets.slice(1).forEach((sheetName, index) => {
+                    const ws = workbook.Sheets[sheetName];
+                    const data = processSheet(ws);
+                    // Offset position slightly
+                    addBlock('table', { x: block.position.x + 20 + (index * 20), y: block.position.y + 20 + (index * 20) }, data);
+                });
+            }
+        } else {
+            // Create NEW notebooks for each sheet
+            sortedSheets.forEach(sheetName => {
+                const ws = workbook.Sheets[sheetName];
+                const data = processSheet(ws);
+
+                createNotebook({
+                    name: sheetName,
+                    blocks: [{
+                        id: 'table-1', // Will be regenerated by context but good for structure
+                        type: 'table',
+                        position: { x: 50, y: 50 },
+                        size: { width: 600, height: 400 },
+                        content: data,
+                        variableName: sheetName.replace(/\s+/g, '_'),
+                        style: {
+                            color: 'var(--text-color)',
+                            fontSize: '14px',
+                            fontFamily: 'Inter, sans-serif',
+                            textAlign: 'center'
+                        }
+                    } as any] // Cast to avoid strict ID check issues before context processes it
+                });
+            });
+        }
+    };
+
     return (
         <div className="flex flex-col h-full bg-white rounded-lg overflow-hidden">
+            <ImportDialog
+                isOpen={importDialog.isOpen}
+                onClose={() => setImportDialog({ ...importDialog, isOpen: false })}
+                sheets={importDialog.sheets}
+                onImport={handleImportConfirm}
+            />
+
             <div className="flex items-center gap-3 p-2 border-b border-slate-100 bg-slate-50/50">
                 <div className="flex items-center gap-2 px-2 py-1 bg-slate-100 rounded-md">
                     <span className="text-xs font-bold text-slate-500 tracking-wider">TABLE</span>

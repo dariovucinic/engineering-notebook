@@ -13,12 +13,15 @@ import React, { useState } from 'react';
 import { BlockType } from '@/types/block';
 import Logo from '../ui/Logo';
 import { FileCode2, Box, Image as ImageIcon } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface LeftSidebarProps {
     onAddBlock: (type: BlockType) => void;
+    onExport: () => void;
+    onImport: () => void;
 }
 
-const LeftSidebar: React.FC<LeftSidebarProps> = ({ onAddBlock }) => {
+const LeftSidebar: React.FC<LeftSidebarProps> = ({ onAddBlock, onExport, onImport }) => {
     const [isExpanded, setIsExpanded] = useState(true);
 
     const blockTypes: { type: BlockType; label: string; icon: React.ReactNode; description: string }[] = [
@@ -51,8 +54,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onAddBlock }) => {
             {/* Block Palette */}
             <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
                 {blockTypes.map((item) => (
-                    <button
+                    <motion.button
                         key={item.type}
+                        whileHover={{ scale: 1.02, x: 4 }}
+                        whileTap={{ scale: 0.95 }}
                         onClick={() => onAddBlock(item.type)}
                         className={`group flex items-center gap-3 p-2.5 rounded-xl transition-all duration-200 w-full hover:bg-white/40 dark:hover:bg-black/20 border border-transparent hover:border-white/20 ${!isExpanded ? 'justify-center' : ''}`}
                     >
@@ -68,13 +73,47 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onAddBlock }) => {
                                 <span className="text-[10px] truncate w-full text-left" style={{ color: 'var(--text-secondary-color)' }}>{item.description}</span>
                             </div>
                         )}
-                    </button>
+                    </motion.button>
                 ))}
             </div>
 
-            {/* Footer Area (Optional) */}
-            <div className="p-4 border-t border-white/10">
-                {/* Placeholder for future settings or user profile */}
+            {/* Footer Area */}
+            <div className="p-4 border-t border-white/10 space-y-2">
+                <motion.button
+                    whileHover={{ scale: 1.02, x: 4 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={onImport}
+                    className={`group flex items-center gap-3 p-2.5 rounded-xl transition-all duration-200 w-full hover:bg-white/40 dark:hover:bg-black/20 border border-transparent hover:border-white/20 ${!isExpanded ? 'justify-center' : ''}`}
+                    title="Import Notebook"
+                >
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shadow-sm glass-button group-hover:scale-110 transition-transform duration-200 bg-emerald-500/10 text-emerald-500">
+                        📂
+                    </div>
+                    {isExpanded && (
+                        <div className="flex flex-col items-start overflow-hidden">
+                            <span className="font-semibold text-sm" style={{ color: 'var(--text-color)' }}>Import</span>
+                            <span className="text-[10px] truncate w-full text-left" style={{ color: 'var(--text-secondary-color)' }}>Load Notebook</span>
+                        </div>
+                    )}
+                </motion.button>
+
+                <motion.button
+                    whileHover={{ scale: 1.02, x: 4 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={onExport}
+                    className={`group flex items-center gap-3 p-2.5 rounded-xl transition-all duration-200 w-full hover:bg-white/40 dark:hover:bg-black/20 border border-transparent hover:border-white/20 ${!isExpanded ? 'justify-center' : ''}`}
+                    title="Export"
+                >
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shadow-sm glass-button group-hover:scale-110 transition-transform duration-200 bg-indigo-500/10 text-indigo-500">
+                        📥
+                    </div>
+                    {isExpanded && (
+                        <div className="flex flex-col items-start overflow-hidden">
+                            <span className="font-semibold text-sm" style={{ color: 'var(--text-color)' }}>Export</span>
+                            <span className="text-[10px] truncate w-full text-left" style={{ color: 'var(--text-secondary-color)' }}>PDF or Notebook</span>
+                        </div>
+                    )}
+                </motion.button>
             </div>
         </div>
     );

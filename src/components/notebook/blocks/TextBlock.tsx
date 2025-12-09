@@ -8,7 +8,6 @@
  * Unauthorized copying, distribution, or use is strictly prohibited.
  */
 
-
 import React, { useRef, useEffect, useState } from 'react';
 import { TextBlock as TextBlockType, BlockStyle } from '@/types/block';
 import { useComputation } from '@/contexts/ComputationContext';
@@ -25,6 +24,7 @@ const TextBlock: React.FC<TextBlockProps> = ({ block, onChange }) => {
     const { scope, scopeVersion } = useComputation();
     const [interpolated, setInterpolated] = useState<string>('');
     const [isEditing, setIsEditing] = useState(false);
+    const [showVariables, setShowVariables] = useState(false);
 
     const style = block.style || {
         color: '#000000',
@@ -72,10 +72,71 @@ const TextBlock: React.FC<TextBlockProps> = ({ block, onChange }) => {
         };
     }, [isEditing]);
 
+    const insertVariable = (varName: string) => {
+        if (textareaRef.current) {
+            const start = textareaRef.current.selectionStart;
+            const end = textareaRef.current.selectionEnd;
+            const text = block.content;
+            const newText = text.substring(0, start) + `{${varName}}` + text.substring(end);
+            onChange({ content: newText });
+
+            // Restore focus and cursor position
+            setTimeout(() => {
+                if (textareaRef.current) {
+                    textareaRef.current.focus();
+                    textareaRef.current.setSelectionRange(start + varName.length + 2, start + varName.length + 2);
+                }
+            }, 0);
+        }
+    };
+
     if (isEditing) {
+        const variables = Object.keys(scope.current).filter(k => !k.startsWith('_'));
+
         return (
             <div ref={containerRef} className="w-full h-full flex flex-col">
-                <FormattingToolbar style={style} onChange={handleStyleChange} />
+                <div className="flex items-center gap-2 mb-2">
+                    <FormattingToolbar style={style} onChange={handleStyleChange} />
+
+                    {/* Variable Selector */}
+                    <div className="relative">
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowVariables(!showVariables);
+                            }}
+                            className={`px-2 py-1 text-xs font-medium rounded border transition-colors ${showVariables ? 'bg-indigo-100 text-indigo-700 border-indigo-300' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border-indigo-200'}`}
+                        >
+                            {'{x}'} Vars
+                        </button>
+                        {showVariables && (
+                            <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden z-50">
+                                <div className="max-h-48 overflow-y-auto p-1">
+                                    {variables.length > 0 ? (
+                                        variables.map(v => (
+                                            <button
+                                                key={v}
+                                                onClick={() => {
+                                                    insertVariable(v);
+                                                    setShowVariables(false);
+                                                }}
+                                                className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 rounded flex items-center justify-between group/item"
+                                            >
+                                                <span className="font-mono text-xs">{v}</span>
+                                                <span className="text-xs text-slate-400 group-hover/item:text-indigo-500">
+                                                    {String(scope.current[v]).substring(0, 10)}
+                                                </span>
+                                            </button>
+                                        ))
+                                    ) : (
+                                        <div className="px-3 py-2 text-xs text-slate-400 text-center">No variables</div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
                 <textarea
                     ref={textareaRef}
                     className="w-full flex-1 p-4 resize-none outline-none bg-white font-mono text-sm"

@@ -15,6 +15,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { ResizableBox, ResizeCallbackData } from 'react-resizable';
 import 'react-resizable/css/styles.css';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface BlockWrapperProps {
     block: Block;
@@ -66,7 +67,7 @@ const BlockWrapper: React.FC<BlockWrapperProps> = ({ block, isSelected, scale, c
         <div
             ref={setNodeRef}
             style={style}
-            className={`transition-all duration-200 ease-out ${isDragging ? 'z-50 scale-105' : ''}`}
+            className={`transition-all duration-200 ease-out ${isDragging ? 'z-50' : ''}`}
         >
             <ResizableBox
                 width={size.width}
@@ -77,40 +78,57 @@ const BlockWrapper: React.FC<BlockWrapperProps> = ({ block, isSelected, scale, c
                 maxConstraints={[1200, 1000]}
                 transformScale={scale}
                 handle={
-                    <div className="absolute bottom-0 right-0 w-6 h-6 cursor-se-resize flex items-end justify-end p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute bottom-0 right-0 w-6 h-6 cursor-se-resize flex items-end justify-end p-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--text-secondary-color)' }} />
                     </div>
                 }
-                className={`group relative rounded-xl transition-all duration-300 glass
-                    ${isSelected
-                        ? 'ring-2 ring-accent shadow-lg'
-                        : 'hover:shadow-md'
-                    }
-                    ${isDragging ? 'shadow-2xl ring-2 ring-accent scale-105' : ''}
-                `}
-                style={{
-                    borderColor: isSelected ? 'var(--accent-color)' : undefined,
-                    '--tw-ring-color': 'var(--accent-color)'
-                } as React.CSSProperties}
+                // Removed visual classes from here, moved to inner motion.div
+                className="group relative"
             >
-                <div className="h-full w-full relative overflow-hidden rounded-xl flex flex-col">
+                <motion.div
+                    layout
+                    initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                    whileHover={{ scale: 1.005, y: -2 }}
+                    transition={{
+                        type: "spring",
+                        stiffness: 400,
+                        damping: 25,
+                        mass: 0.8
+                    }}
+                    className={`h-full w-full relative overflow-hidden rounded-xl flex flex-col glass
+                        ${isSelected
+                            ? 'ring-2 ring-accent shadow-lg'
+                            : 'hover:shadow-xl'
+                        }
+                        ${isDragging ? 'shadow-2xl ring-2 ring-accent' : ''}
+                    `}
+                    style={{
+                        borderColor: isSelected ? 'var(--accent-color)' : undefined,
+                        '--tw-ring-color': 'var(--accent-color)'
+                    } as React.CSSProperties}
+                >
                     {/* Drag Handle Header */}
                     <div
                         {...listeners}
                         {...attributes}
                         className="h-6 w-full absolute top-0 left-0 z-50 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing flex justify-center items-center"
                     >
-                        <div className="w-12 h-1 rounded-full mt-2 shadow-sm" style={{ backgroundColor: 'var(--border-color)' }} />
+                        <div className="w-12 h-1 rounded-full mt-2 shadow-sm bg-black/10 dark:bg-white/10 backdrop-blur-md" />
                     </div>
 
                     {/* Delete Button */}
                     {onDelete && (
-                        <button
+                        <motion.button
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            whileHover={{ scale: 1.1, backgroundColor: '#ef4444', color: '#ffffff' }}
+                            whileTap={{ scale: 0.9 }}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onDelete();
                             }}
-                            className="absolute top-2 right-2 z-[60] p-1.5 rounded-full hover:bg-red-500 hover:text-white opacity-0 group-hover:opacity-100 transition-all shadow-sm border border-transparent"
+                            className="absolute top-2 right-2 z-[60] p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-sm border border-transparent"
                             style={{
                                 color: 'var(--text-secondary-color)',
                                 backgroundColor: 'var(--bg-color)'
@@ -122,14 +140,14 @@ const BlockWrapper: React.FC<BlockWrapperProps> = ({ block, isSelected, scale, c
                                 <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
                                 <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
                             </svg>
-                        </button>
+                        </motion.button>
                     )}
 
                     {/* Content Area */}
                     <div className="flex-1 w-full h-full overflow-hidden">
                         {children}
                     </div>
-                </div>
+                </motion.div>
             </ResizableBox>
         </div>
     );

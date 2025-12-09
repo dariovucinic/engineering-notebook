@@ -15,15 +15,17 @@ import { EditorState } from '@codemirror/state';
 import { python } from '@codemirror/lang-python';
 import { javascript } from '@codemirror/lang-javascript';
 import { oneDark } from '@codemirror/theme-one-dark';
+import { keymap } from '@codemirror/view';
 
 interface CodeEditorProps {
     value: string;
     onChange: (value: string) => void;
     language?: 'python' | 'javascript' | 'r';
     readOnly?: boolean;
+    onRun?: () => void;
 }
 
-const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, language = 'python', readOnly = false }) => {
+const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, language = 'python', readOnly = false, onRun }) => {
     const editorRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
 
@@ -39,6 +41,18 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, language = 'py
                 basicSetup,
                 langExtension,
                 oneDark,
+                keymap.of([
+                    {
+                        key: "Shift-Enter",
+                        run: (view) => {
+                            if (onRun) {
+                                onRun();
+                                return true;
+                            }
+                            return false;
+                        }
+                    }
+                ]),
                 EditorView.updateListener.of((update: any) => {
                     if (update.docChanged && !readOnly) {
                         onChange(update.state.doc.toString());
@@ -78,7 +92,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, language = 'py
         return () => {
             view.destroy();
         };
-    }, [language]); // Recreate editor when language changes
+    }, [language, onRun]); // Recreate editor when language or onRun changes
 
     // Update editor content when value prop changes externally
     useEffect(() => {
