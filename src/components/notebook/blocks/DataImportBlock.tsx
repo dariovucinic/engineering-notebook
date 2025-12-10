@@ -26,6 +26,22 @@ const DataImportBlock: React.FC<DataImportBlockProps> = ({ block, onChange }) =>
     const [preview, setPreview] = useState<any[][]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // Initialize state from block data
+    React.useEffect(() => {
+        if (block.data && block.data.sheets) {
+            setSheets(block.data.sheets);
+            if (block.selectedSheet && block.data[block.selectedSheet]) {
+                setPreview(block.data[block.selectedSheet]);
+            } else if (block.data.sheets.length > 0) {
+                // Fallback to first sheet if selected sheet is invalid
+                const firstSheet = block.data.sheets[0];
+                if (block.data[firstSheet]) {
+                    setPreview(block.data[firstSheet]);
+                }
+            }
+        }
+    }, [block.data, block.selectedSheet]);
+
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -46,7 +62,10 @@ const DataImportBlock: React.FC<DataImportBlockProps> = ({ block, onChange }) =>
 
             sheetNames.forEach(sheetName => {
                 const worksheet = workbook.Sheets[sheetName];
-                parsedData[sheetName] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                parsedData[sheetName] = XLSX.utils.sheet_to_json(worksheet, {
+                    header: 1,
+                    defval: '' // Ensure empty cells are empty strings
+                });
             });
 
             // Set preview from first sheet
