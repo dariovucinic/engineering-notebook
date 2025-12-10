@@ -103,11 +103,24 @@ const CanvasContent: React.FC = () => {
                 setIsPanning(false);
             }
         };
+
+        // Global wheel handler for Ctrl+scroll zoom anywhere
+        const handleGlobalWheel = (e: WheelEvent) => {
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                const scale = e.deltaY > 0 ? 0.9 : 1.1;
+                setZoom((prev) => Math.min(Math.max(prev * scale, 0.1), 5));
+            }
+        };
+
         window.addEventListener('keydown', handleKeyDown);
         window.addEventListener('keyup', handleKeyUp);
+        window.addEventListener('wheel', handleGlobalWheel, { passive: false });
+
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
+            window.removeEventListener('wheel', handleGlobalWheel);
         };
     }, []);
 

@@ -580,7 +580,11 @@ const CADBlock: React.FC<CADBlockProps> = ({ id, content, onUpdate }) => {
             <div
                 className="flex-1 cursor-crosshair"
                 onWheel={(e) => {
-                    e.stopPropagation();
+                    // Only stop propagation for plain scroll (3D model zoom)
+                    // Let Ctrl+scroll bubble up for canvas zoom
+                    if (!e.ctrlKey) {
+                        e.stopPropagation();
+                    }
                 }}
             >
                 <Canvas shadows dpr={[1, 2]} camera={{ position: [4, 4, 4], fov: 50 }}>
