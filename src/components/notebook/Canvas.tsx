@@ -39,7 +39,7 @@ const CanvasContent: React.FC = () => {
         removeBlock,
         createNotebook
     } = useNotebookContext();
-    const { scope } = useComputation();
+    const { scope, runScript } = useComputation();
 
     const blocks = activeNotebook?.blocks || [];
 
@@ -52,6 +52,35 @@ const CanvasContent: React.FC = () => {
     const [showDependencies, setShowDependencies] = useState(true);
     const [showReportBuilder, setShowReportBuilder] = useState(false);
     const canvasRef = useRef<HTMLDivElement>(null);
+    const [isRunningAll, setIsRunningAll] = useState(false);
+
+    // Run all script blocks in sequence (sorted by Y position)
+    const runAllScripts = async () => {
+        const scriptBlocks = blocks
+            .filter(b => b.type === 'script')
+            .sort((a, b) => a.position.y - b.position.y);
+
+        if (scriptBlocks.length === 0) return;
+
+        setIsRunningAll(true);
+
+        for (const block of scriptBlocks) {
+            const scriptBlock = block as any;
+            const content = scriptBlock.content || '';
+            const language = scriptBlock.language || 'python';
+
+            if (content.trim()) {
+                try {
+                    const output = await runScript(content, language);
+                    updateBlock(block.id, { output });
+                } catch (error: any) {
+                    updateBlock(block.id, { output: `Error: ${error.message}` });
+                }
+            }
+        }
+
+        setIsRunningAll(false);
+    };
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -289,9 +318,23 @@ const CanvasContent: React.FC = () => {
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col h-full relative">
-                {/* Top Controls */}
                 <div className="absolute top-3 right-4 z-50 flex gap-2 items-center">
                     <ThemeSwitcher />
+                    <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1" />
+
+                    <button
+                        onClick={runAllScripts}
+                        disabled={isRunningAll}
+                        className={`p-2 backdrop-blur-md rounded-lg shadow-sm border transition-colors flex items-center gap-1 text-xs font-medium ${isRunningAll ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        style={{
+                            backgroundColor: 'var(--surface-color)',
+                            borderColor: 'var(--border-color)',
+                            color: 'var(--text-color)'
+                        }}
+                        title="Run All Scripts"
+                    >
+                        {isRunningAll ? '⏳' : '▶️'} Run All
+                    </button>
                     <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1" />
 
                     <button
