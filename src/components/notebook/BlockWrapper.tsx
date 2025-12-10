@@ -121,7 +121,6 @@ const BlockWrapper: React.FC<BlockWrapperProps> = ({ block, isSelected, scale, c
                     {/* Delete Button */}
                     {onDelete && (
                         <motion.button
-                            initial={{ opacity: 0, scale: 0.8 }}
                             whileHover={{ scale: 1.1, backgroundColor: '#ef4444', color: '#ffffff' }}
                             whileTap={{ scale: 0.9 }}
                             onClick={(e) => {
