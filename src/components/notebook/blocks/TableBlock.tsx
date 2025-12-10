@@ -33,6 +33,16 @@ const TableBlock: React.FC<TableBlockProps> = ({ block, onChange }) => {
     const [importDialog, setImportDialog] = useState<{ isOpen: boolean; sheets: string[] }>({ isOpen: false, sheets: [] });
     const workbookRef = useRef<XLSX.WorkBook | null>(null);
 
+    // Debounced variable name to prevent polluting scope with partial names while typing
+    const [debouncedVarName, setDebouncedVarName] = useState(block.variableName || '');
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedVarName(block.variableName || '');
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [block.variableName]);
+
     const style = block.style || {
         color: '#000000',
         fontSize: '14px',
@@ -58,9 +68,9 @@ const TableBlock: React.FC<TableBlockProps> = ({ block, onChange }) => {
         setUpdateTrigger(prev => prev + 1);
     }, [scopeVersion, block.variableName]);
 
-    // Sync from table to scope on mount/change
+    // Sync from table to scope on mount/change (uses debounced variable name)
     useEffect(() => {
-        if (block.variableName && block.variableName.trim()) {
+        if (debouncedVarName && debouncedVarName.trim()) {
             // Evaluate formulas before putting into scope
             const evaluatedData = data.map(row => row.map(cell => {
                 if (typeof cell === 'string') {
@@ -82,9 +92,9 @@ const TableBlock: React.FC<TableBlockProps> = ({ block, onChange }) => {
                 return cell;
             }));
             // Use updateVariable to trigger reactivity
-            updateVariable(block.variableName.trim(), evaluatedData);
+            updateVariable(debouncedVarName.trim(), evaluatedData);
         }
-    }, [block.variableName, data, evaluateFormula, updateVariable]);
+    }, [debouncedVarName, data, evaluateFormula, updateVariable]);
 
     const handleStyleChange = (newStyle: BlockStyle) => {
         onChange({ style: newStyle });
