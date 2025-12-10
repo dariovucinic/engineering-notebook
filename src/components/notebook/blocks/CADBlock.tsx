@@ -577,7 +577,12 @@ const CADBlock: React.FC<CADBlockProps> = ({ id, content, onUpdate }) => {
             )}
 
             {/* 3D Canvas */}
-            <div className="flex-1 cursor-crosshair">
+            <div
+                className="flex-1 cursor-crosshair"
+                onWheel={(e) => {
+                    e.stopPropagation();
+                }}
+            >
                 <Canvas shadows dpr={[1, 2]} camera={{ position: [4, 4, 4], fov: 50 }}>
                     <color attach="background" args={['#0f172a']} />
                     <MeasurementScene
