@@ -181,6 +181,47 @@ const PrintView: React.FC<PrintViewProps> = ({ blocks, scope = {} }) => {
                                 <div className="text-xs mt-1">Interactive 3D content not available in print</div>
                             </div>
                         )}
+
+                        {block.type === 'data' && (
+                            <div className="my-4">
+                                <h3 className="text-sm font-semibold text-slate-500 mb-2 uppercase tracking-wider">
+                                    Data: {(block as any).variableName || (block as any).fileName || 'Imported Data'}
+                                </h3>
+                                {(() => {
+                                    const dataBlock = block as any;
+                                    const sheetName = dataBlock.selectedSheet;
+                                    const sheetData = dataBlock.data && sheetName ? dataBlock.data[sheetName] : null;
+
+                                    if (!sheetData || !Array.isArray(sheetData)) {
+                                        return <div className="text-sm text-slate-400 italic">No data available</div>;
+                                    }
+
+                                    // Limit to first 50 rows for PDF
+                                    const displayData = sheetData.slice(0, 50);
+
+                                    return (
+                                        <>
+                                            <div className="text-xs text-slate-400 mb-1">
+                                                Sheet: {sheetName} ({sheetData.length} rows{sheetData.length > 50 ? ', showing first 50' : ''})
+                                            </div>
+                                            <table className="w-full border-collapse border border-slate-200 text-sm">
+                                                <tbody>
+                                                    {displayData.map((row: any[], i: number) => (
+                                                        <tr key={i} className={i === 0 ? 'bg-slate-50 font-semibold' : ''}>
+                                                            {row.map((cell: any, j: number) => (
+                                                                <td key={j} className="border border-slate-200 p-2 text-center text-slate-700">
+                                                                    {String(cell ?? '')}
+                                                                </td>
+                                                            ))}
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </>
+                                    );
+                                })()}
+                            </div>
+                        )}
                     </div>
                 ))}
             </div>
