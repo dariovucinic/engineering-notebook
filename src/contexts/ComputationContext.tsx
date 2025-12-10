@@ -91,27 +91,48 @@ export const ComputationProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 });
 
                 // Sync JavaScript scope to Python globals
-                for (const [key, value] of Object.entries(scope.current)) {
-                    pyodideRef.current.globals.set(key, value);
-                }
+                const proxiesToDestroy: any[] = [];
+                try {
+                    for (const [key, value] of Object.entries(scope.current)) {
+                        if (typeof value === 'object' && value !== null) {
+                            // Convert complex objects (Arrays, Objects) to Python types (List, Dict)
+                            // This prevents "TypeError: 'pyodide.ffi.JsProxy' object is not subscriptable"
+                            const pyProxy = pyodideRef.current.toPy(value);
+                            proxiesToDestroy.push(pyProxy);
+                            pyodideRef.current.globals.set(key, pyProxy);
+                        } else {
+                            pyodideRef.current.globals.set(key, value);
+                        }
+                    }
 
-                // Run the user's Python code
-                await pyodideRef.current.runPythonAsync(code);
+                    // Run the user's Python code
+                    await pyodideRef.current.runPythonAsync(code);
 
-                // Capture all new/modified variables from Python globals
-                const currentGlobals = pyodideRef.current.globals;
-                for (const key of currentGlobals.keys()) {
-                    // Skip built-in Python modules and private variables
-                    if (!key.startsWith('_') && !key.startsWith('__') &&
-                        !['js', 'pyodide', 'pyodide_py', 'micropip'].includes(key)) {
-                        const value = currentGlobals.get(key);
-                        // Convert Python objects to JS
-                        scope.current[key] = typeof value?.toJs === 'function' ? value.toJs() : value;
+                    // Capture all new/modified variables from Python globals
+                    const currentGlobals = pyodideRef.current.globals;
+                    for (const key of currentGlobals.keys()) {
+                        // Skip built-in Python modules and private variables
+                        if (!key.startsWith('_') && !key.startsWith('__') &&
+                            !['js', 'pyodide', 'pyodide_py', 'micropip'].includes(key)) {
+                            const value = currentGlobals.get(key);
+                            // Convert Python objects to JS
+                            scope.current[key] = typeof value?.toJs === 'function' ? value.toJs() : value;
+                        }
+                    }
+
+                    setScopeVersion(prev => prev + 1);
+                    setExecutionCount(prev => prev + 1);
+                } finally {
+                    // Cleanup proxies to avoid memory leaks
+                    for (const proxy of proxiesToDestroy) {
+                        try {
+                            proxy.destroy();
+                        } catch (e) {
+                            // Ignore destruction errors
+                        }
                     }
                 }
 
-                setScopeVersion(prev => prev + 1);
-                setExecutionCount(prev => prev + 1);
                 return logs.length > 0 ? logs.join('\n') : 'Executed successfully (no output)';
             } else if (language === 'r') {
                 if (!webRRef.current) {
