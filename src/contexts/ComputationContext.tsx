@@ -177,6 +177,37 @@ export const ComputationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const evaluateFormula = useCallback((expression: string) => {
         try {
             if (!expression.trim()) return '';
+
+            // Pre-process: Replace JS-style object/array access with evaluated values
+            // This handles expressions like myTable['Foglio1'][1][1] that math.js can't parse
+            let processedExpression = expression;
+
+            // Pattern to match variable access with brackets: varName['key'] or varName[0] etc.
+            // We'll find and evaluate these patterns, replacing with their values
+            const jsAccessPattern = /([a-zA-Z_][a-zA-Z0-9_]*)(\[['"\d\]][^\s+\-*/=]*)/g;
+
+            processedExpression = expression.replace(jsAccessPattern, (match, varName, accessors) => {
+                try {
+                    if (scope.current[varName] !== undefined) {
+                        // Build and evaluate the full access expression
+                        const scopeKeys = Object.keys(scope.current);
+                        const scopeValues = Object.values(scope.current);
+                        const fn = new Function(...scopeKeys, `return ${match}`);
+                        const value = fn(...scopeValues);
+
+                        if (typeof value === 'number') {
+                            return value.toString();
+                        } else if (typeof value === 'string') {
+                            return `"${value}"`;
+                        }
+                        return match; // Can't substitute, leave as-is
+                    }
+                } catch (e) {
+                    // If JS evaluation fails, leave the original expression
+                }
+                return match;
+            });
+
             // Convert arrays to math.js matrices for proper indexing
             const matrixScope: Record<string, any> = {};
             for (const [key, value] of Object.entries(scope.current)) {
@@ -191,7 +222,7 @@ export const ComputationProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 }
             }
 
-            const result = math.evaluate(expression, matrixScope);
+            const result = math.evaluate(processedExpression, matrixScope);
 
             // Sync back changes to scope.current
             let scopeChanged = false;
