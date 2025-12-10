@@ -28,6 +28,12 @@ interface CodeEditorProps {
 const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, language = 'python', readOnly = false, onRun }) => {
     const editorRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
+    const onRunRef = useRef(onRun);
+
+    // Update ref when onRun changes
+    useEffect(() => {
+        onRunRef.current = onRun;
+    }, [onRun]);
 
     useEffect(() => {
         if (!editorRef.current) return;
@@ -45,8 +51,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, language = 'py
                     {
                         key: "Shift-Enter",
                         run: (view) => {
-                            if (onRun) {
-                                onRun();
+                            if (onRunRef.current) {
+                                onRunRef.current();
                                 return true;
                             }
                             return false;
@@ -92,7 +98,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, language = 'py
         return () => {
             view.destroy();
         };
-    }, [language, onRun]); // Recreate editor when language or onRun changes
+    }, [language]); // Removed onRun from dependencies
 
     // Update editor content when value prop changes externally
     useEffect(() => {
