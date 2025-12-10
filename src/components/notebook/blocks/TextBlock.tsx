@@ -42,10 +42,27 @@ const TextBlock: React.FC<TextBlockProps> = ({ block, onChange }) => {
     }, [block.content, isEditing]);
 
     useEffect(() => {
-        // Interpolate {variableName} with actual values
-        const result = block.content.replace(/\{(\w+)\}/g, (match, varName) => {
-            const value = scope.current[varName];
-            return value !== undefined ? String(value) : match;
+        // Interpolate {expression} with actual values
+        // Updated regex to match expressions like {varName}, {var['key']}, {var[0][1]}, etc.
+        const result = block.content.replace(/\{([^}]+)\}/g, (match, expression) => {
+            try {
+                // Try to evaluate the expression against the scope
+                // First, check if it's a simple variable name
+                const trimmedExpr = expression.trim();
+
+                // Create a function that can access scope variables
+                const scopeKeys = Object.keys(scope.current);
+                const scopeValues = Object.values(scope.current);
+
+                // Build a function that takes scope values as arguments
+                const fn = new Function(...scopeKeys, `return ${trimmedExpr}`);
+                const value = fn(...scopeValues);
+
+                return value !== undefined ? String(value) : match;
+            } catch (e) {
+                // If evaluation fails, return the original match
+                return match;
+            }
         });
         setInterpolated(result);
     }, [block.content, scope, scopeVersion]);
