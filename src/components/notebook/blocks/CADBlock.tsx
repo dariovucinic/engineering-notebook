@@ -47,7 +47,9 @@ const SceneObjectMesh: React.FC<{
     onSelect: (e: any) => void;
     onUpdate: (updates: Partial<SceneObject>) => void;
     mode: MeasureMode;
-}> = ({ object, isSelected, onSelect, onUpdate, mode }) => {
+    onMeasureClick?: (e: any) => void;
+    onMeasureHover?: (e: any) => void;
+}> = ({ object, isSelected, onSelect, onUpdate, mode, onMeasureClick, onMeasureHover }) => {
     const [meshObj, setMeshObj] = useState<THREE.Object3D | null>(null);
     const [stepMesh, setStepMesh] = useState<THREE.Group | null>(null);
 
@@ -104,6 +106,17 @@ const SceneObjectMesh: React.FC<{
         if (mode === 'edit') {
             e.stopPropagation();
             onSelect(object.id);
+        } else if (mode === 'distance' || mode === 'angle') {
+            // Forward to measurement handler
+            if (onMeasureClick) {
+                onMeasureClick(e);
+            }
+        }
+    };
+
+    const handlePointerMove = (e: any) => {
+        if ((mode === 'distance' || mode === 'angle') && onMeasureHover) {
+            onMeasureHover(e);
         }
     };
 
@@ -113,6 +126,7 @@ const SceneObjectMesh: React.FC<{
         rotation: new THREE.Euler(...object.rotation),
         scale: new THREE.Vector3(...object.scale),
         onClick: handlePointerDown,
+        onPointerMove: handlePointerMove,
     };
 
     return (
@@ -160,6 +174,7 @@ const SceneObjectMesh: React.FC<{
                     rotation={new THREE.Euler(...object.rotation)}
                     scale={new THREE.Vector3(...object.scale)}
                     onClick={handlePointerDown}
+                    onPointerMove={handlePointerMove}
                 />
             )}
         </>
@@ -276,6 +291,8 @@ const MeasurementScene: React.FC<{
                         onSelect={onSelect}
                         onUpdate={(updates) => onUpdateObject(obj.id, updates)}
                         mode={mode}
+                        onMeasureClick={handleClick}
+                        onMeasureHover={handlePointerMove}
                     />
                 ))}
 
