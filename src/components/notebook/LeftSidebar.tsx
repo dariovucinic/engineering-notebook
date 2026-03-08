@@ -36,16 +36,18 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onAddBlock, onExport, onImpor
 
     return (
         <div
-            className={`h-full flex flex-col z-30 transition-all duration-300 glass-heavy border-r border-white/10 ${isExpanded ? 'w-64' : 'w-16'}`}
+            className={`flex flex-col z-30 transition-all duration-300 glass border border-white/10 rounded-xl my-4 ml-4 ${isExpanded ? 'w-64' : 'w-16'}`}
+            style={{
+                borderColor: 'var(--border-color)',
+                height: 'calc(100% - 2rem)',
+                boxShadow: '0 0 20px rgba(0,0,0,0.2), 0 0 40px -10px var(--accent-color)'
+            }}
         >
-            {/* Header / Logo */}
-            <div className="flex items-center justify-between p-4 h-16">
-                <div className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>
-                    <Logo showText={true} size={24} />
-                </div>
+            {/* Toggle Handle - now integrated into the top of the bar or just the side */}
+            <div className="flex justify-end p-2">
                 <button
                     onClick={() => setIsExpanded(!isExpanded)}
-                    className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-gray-500 transition-colors"
+                    className="p-1 rounded hover:bg-white/10 text-[var(--accent-color)] transition-colors opacity-50 hover:opacity-100"
                 >
                     {isExpanded ? '◀' : '▶'}
                 </button>
@@ -56,21 +58,25 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onAddBlock, onExport, onImpor
                 {blockTypes.map((item) => (
                     <motion.button
                         key={item.type}
-                        whileHover={{ scale: 1.02, x: 4 }}
+                        whileHover={{ scale: 1.02, x: 2 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => onAddBlock(item.type)}
-                        className={`group flex items-center gap-3 p-2.5 rounded-xl transition-all duration-200 w-full hover:bg-white/40 dark:hover:bg-black/20 border border-transparent hover:border-white/20 ${!isExpanded ? 'justify-center' : ''}`}
+                        className={`group flex items-center gap-3 p-2 rounded-lg transition-all duration-200 w-full hover:bg-white/5 border border-transparent hover:border-white/10 ${!isExpanded ? 'justify-center' : ''}`}
                     >
                         <div
-                            className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shadow-sm glass-button group-hover:scale-110 transition-transform duration-200"
+                            className="w-8 h-8 rounded flex items-center justify-center text-lg shadow-sm glass group-hover:shadow-[0_0_10px_var(--accent-color)] transition-all duration-200"
+                            style={{
+                                background: 'linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01))',
+                                borderColor: 'var(--border-color)'
+                            }}
                         >
                             <span className="filter drop-shadow-sm">{item.icon}</span>
                         </div>
 
                         {isExpanded && (
                             <div className="flex flex-col items-start overflow-hidden">
-                                <span className="font-semibold text-sm" style={{ color: 'var(--text-color)' }}>{item.label}</span>
-                                <span className="text-[10px] truncate w-full text-left" style={{ color: 'var(--text-secondary-color)' }}>{item.description}</span>
+                                <span className="font-medium text-sm tracking-wide" style={{ color: 'var(--text-color)' }}>{item.label}</span>
+                                <span className="text-[10px] truncate w-full text-left uppercase tracking-wider opacity-60" style={{ color: 'var(--text-secondary-color)' }}>{item.description}</span>
                             </div>
                         )}
                     </motion.button>
@@ -80,37 +86,35 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onAddBlock, onExport, onImpor
             {/* Footer Area */}
             <div className="p-4 border-t border-white/10 space-y-2">
                 <motion.button
-                    whileHover={{ scale: 1.02, x: 4 }}
+                    whileHover={{ scale: 1.02, x: 2 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={onImport}
-                    className={`group flex items-center gap-3 p-2.5 rounded-xl transition-all duration-200 w-full hover:bg-white/40 dark:hover:bg-black/20 border border-transparent hover:border-white/20 ${!isExpanded ? 'justify-center' : ''}`}
+                    className={`group flex items-center gap-3 p-2 rounded-lg transition-all duration-200 w-full hover:bg-white/5 border border-transparent hover:border-white/10 ${!isExpanded ? 'justify-center' : ''}`}
                     title="Import Notebook"
                 >
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shadow-sm glass-button group-hover:scale-110 transition-transform duration-200 bg-emerald-500/10 text-emerald-500">
+                    <div className="w-8 h-8 rounded flex items-center justify-center text-lg shadow-sm glass group-hover:text-emerald-400 group-hover:shadow-[0_0_10px_rgba(52,211,153,0.3)] transition-all duration-200">
                         📂
                     </div>
                     {isExpanded && (
                         <div className="flex flex-col items-start overflow-hidden">
-                            <span className="font-semibold text-sm" style={{ color: 'var(--text-color)' }}>Import</span>
-                            <span className="text-[10px] truncate w-full text-left" style={{ color: 'var(--text-secondary-color)' }}>Load Notebook</span>
+                            <span className="font-medium text-sm" style={{ color: 'var(--text-color)' }}>Import</span>
                         </div>
                     )}
                 </motion.button>
 
                 <motion.button
-                    whileHover={{ scale: 1.02, x: 4 }}
+                    whileHover={{ scale: 1.02, x: 2 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={onExport}
-                    className={`group flex items-center gap-3 p-2.5 rounded-xl transition-all duration-200 w-full hover:bg-white/40 dark:hover:bg-black/20 border border-transparent hover:border-white/20 ${!isExpanded ? 'justify-center' : ''}`}
+                    className={`group flex items-center gap-3 p-2 rounded-lg transition-all duration-200 w-full hover:bg-white/5 border border-transparent hover:border-white/10 ${!isExpanded ? 'justify-center' : ''}`}
                     title="Export"
                 >
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shadow-sm glass-button group-hover:scale-110 transition-transform duration-200 bg-indigo-500/10 text-indigo-500">
+                    <div className="w-8 h-8 rounded flex items-center justify-center text-lg shadow-sm glass group-hover:text-indigo-400 group-hover:shadow-[0_0_10px_rgba(129,140,248,0.3)] transition-all duration-200">
                         📥
                     </div>
                     {isExpanded && (
                         <div className="flex flex-col items-start overflow-hidden">
-                            <span className="font-semibold text-sm" style={{ color: 'var(--text-color)' }}>Export</span>
-                            <span className="text-[10px] truncate w-full text-left" style={{ color: 'var(--text-secondary-color)' }}>PDF or Notebook</span>
+                            <span className="font-medium text-sm" style={{ color: 'var(--text-color)' }}>Export</span>
                         </div>
                     )}
                 </motion.button>

@@ -60,7 +60,7 @@ const NotebookTabs: React.FC = () => {
     };
 
     return (
-        <div className="flex items-center h-10 px-2 gap-1 border-b border-gray-200 dark:border-gray-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm z-40 select-none">
+        <div className="flex items-center h-full gap-1 border-none z-40 select-none w-full">
             {/* Tabs List */}
             <div className="flex items-center gap-1 overflow-x-auto no-scrollbar flex-1">
                 {notebooks.map((notebook) => (

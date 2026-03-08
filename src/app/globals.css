@@ -56,32 +56,36 @@ body {
 
 @layer utilities {
   .glass {
-    background: color-mix(in srgb, var(--surface-color), transparent 20%);
-    backdrop-filter: blur(16px) saturate(180%);
-    border: 1px solid color-mix(in srgb, var(--border-color), transparent 40%);
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03);
-    will-change: transform, opacity;
+    background: color-mix(in srgb, var(--surface-color), transparent 30%);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   }
 
   .glass-heavy {
     background: color-mix(in srgb, var(--surface-color), transparent 10%);
-    backdrop-filter: blur(24px) saturate(180%);
-    border-bottom: 1px solid color-mix(in srgb, var(--border-color), transparent 40%);
-    box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.05);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   }
 
   .glass-button {
-    background: color-mix(in srgb, var(--surface-color), transparent 50%);
+    background: color-mix(in srgb, var(--surface-color), transparent 60%);
     backdrop-filter: blur(8px);
-    border: 1px solid color-mix(in srgb, var(--border-color), transparent 60%);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid var(--border-color);
+    transition: all 0.2s ease-in-out;
   }
 
   .glass-button:hover {
-    background: color-mix(in srgb, var(--accent-color), transparent 85%);
+    background: color-mix(in srgb, var(--accent-color), transparent 80%);
     border-color: var(--accent-color);
+    box-shadow: 0 0 15px var(--accent-color);
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
+  
+  /* Sci-Fi specific utilities */
+  .scifi-gradient {
+    background: radial-gradient(circle at 50% 50%, #1e293b 0%, #020617 100%);
   }
 
   /* KaTeX color inheritance for theme support */

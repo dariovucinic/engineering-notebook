@@ -24,11 +24,11 @@ import Sidebar from './Sidebar';
 import NotebookTabs from './NotebookTabs';
 import { NotebookProvider, useNotebookContext } from '@/contexts/NotebookContext';
 import { useComputation } from '@/contexts/ComputationContext';
-import ThemeSwitcher from '@/components/ui/ThemeSwitcher';
 import SimpleChatButton from './SimpleChatButton';
 import ReactDOMServer from 'react-dom/server';
 import ReportBuilder from './ReportBuilder';
 import PrintView from './PrintView';
+import Header from './Header';
 
 // Inner Canvas component that consumes the context
 const CanvasContent: React.FC = () => {
@@ -124,6 +124,46 @@ const CanvasContent: React.FC = () => {
         };
     }, []);
 
+    // Global paste handler
+    useEffect(() => {
+        const handlePaste = (e: ClipboardEvent) => {
+            // Ignore if pasting into an input/textarea
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLDivElement && e.target.isContentEditable) {
+                return;
+            }
+
+            const items = e.clipboardData?.items;
+            if (!items) return;
+
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    const blob = items[i].getAsFile();
+                    if (blob) {
+                        e.preventDefault();
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            const content = event.target?.result as string;
+                            // Add block at center of view
+                            // We need to calculate this carefully since we are in a closure
+                            // Using functional state updates for setBlocks is tricky if we depend on 'pan' and 'zoom' from state
+                            // But since this useEffect will have dependencies, it should work fine if we include them
+
+                            // Center of window relative to canvas origin
+                            const centerX = (-pan.x + window.innerWidth / 2) / zoom;
+                            const centerY = (-pan.y + window.innerHeight / 2) / zoom;
+
+                            addBlock('image', { x: centerX - 150, y: centerY - 100 }, content);
+                        };
+                        reader.readAsDataURL(blob);
+                    }
+                }
+            }
+        };
+
+        window.addEventListener('paste', handlePaste);
+        return () => window.removeEventListener('paste', handlePaste);
+    }, [addBlock, pan, zoom]);
+
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, delta } = event;
         const id = active.id as string;
@@ -179,6 +219,42 @@ const CanvasContent: React.FC = () => {
         }
     };
 
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+
+        const files = Array.from(e.dataTransfer.files);
+        const imageFiles = files.filter(file => file.type.startsWith('image/'));
+
+        if (imageFiles.length === 0) return;
+
+        // Calculate drop position in canvas coordinates
+        const rect = e.currentTarget.getBoundingClientRect();
+        const clientX = e.clientX - rect.left;
+        const clientY = e.clientY - rect.top;
+
+        // Convert to canvas space (undo pan and zoom)
+        const canvasX = (clientX - pan.x) / zoom;
+        const canvasY = (clientY - pan.y) / zoom;
+
+        imageFiles.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const content = event.target?.result as string;
+                // Offset multiple images slightly
+                addBlock('image', {
+                    x: canvasX + (index * 20),
+                    y: canvasY + (index * 20)
+                }, content);
+            };
+            reader.readAsDataURL(file);
+        });
+    };
+
     const handleGenerateReport = (selectedBlocks: Block[]) => {
         const printWindow = window.open('', '_blank');
         if (!printWindow) {
@@ -221,12 +297,18 @@ const CanvasContent: React.FC = () => {
     };
 
     const handleExportJSON = (selectedBlocks: Block[]) => {
+        const defaultName = `notebook-export-${new Date().toISOString().slice(0, 10)}`;
+        const filename = prompt('Enter filename for export:', defaultName);
+        if (!filename) return; // User cancelled
+
+        const finalFilename = filename.endsWith('.json') ? filename : `${filename}.json`;
+
         const data = JSON.stringify(selectedBlocks, null, 2);
         const blob = new Blob([data], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `notebook-export-${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = finalFilename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -308,7 +390,7 @@ const CanvasContent: React.FC = () => {
     }, [blocks, showDependencies]);
 
     return (
-        <div className="flex h-screen w-screen overflow-hidden bg-[var(--bg-color)] text-[var(--text-color)]">
+        <div className="flex flex-col h-screen w-screen overflow-hidden bg-[var(--bg-color)] text-[var(--text-color)] scifi-gradient transition-colors duration-500">
             <ReportBuilder
                 isOpen={showReportBuilder}
                 onClose={() => setShowReportBuilder(false)}
@@ -317,178 +399,146 @@ const CanvasContent: React.FC = () => {
                 onExportJSON={handleExportJSON}
             />
 
-            {/* Left Sidebar */}
-            <LeftSidebar
-                onAddBlock={(type) => {
-                    // Center of the current view
-                    const centerX = (-pan.x + window.innerWidth / 2) / zoom;
-                    const centerY = (-pan.y + window.innerHeight / 2) / zoom;
-                    addBlock(type, { x: centerX - 150, y: centerY - 50 });
-                }}
-                onExport={() => setShowReportBuilder(true)}
-                onImport={handleImportNotebook}
+            <Header
+                onRunAll={runAllScripts}
+                isRunningAll={isRunningAll}
+                showDependencies={showDependencies}
+                onToggleDependencies={() => setShowDependencies(!showDependencies)}
+                showSidebar={showSidebar}
+                onToggleSidebar={() => setShowSidebar(!showSidebar)}
             />
 
-            {/* Main Content Area */}
-            <div className="flex-1 flex flex-col h-full relative">
-                <div className="absolute top-3 right-4 z-50 flex gap-2 items-center">
-                    <ThemeSwitcher />
-                    <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1" />
+            <div className="flex-1 flex overflow-hidden relative">
+                {/* Left Sidebar */}
+                <LeftSidebar
+                    onAddBlock={(type) => {
+                        // Center of the current view
+                        const centerX = (-pan.x + window.innerWidth / 2) / zoom;
+                        const centerY = (-pan.y + window.innerHeight / 2) / zoom;
+                        addBlock(type, { x: centerX - 150, y: centerY - 50 });
+                    }}
+                    onExport={() => setShowReportBuilder(true)}
+                    onImport={handleImportNotebook}
+                />
 
-                    <button
-                        onClick={runAllScripts}
-                        disabled={isRunningAll}
-                        className={`p-2 backdrop-blur-md rounded-lg shadow-sm border transition-colors flex items-center gap-1 text-xs font-medium ${isRunningAll ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        style={{
-                            backgroundColor: 'var(--surface-color)',
-                            borderColor: 'var(--border-color)',
-                            color: 'var(--text-color)'
-                        }}
-                        title="Run All Scripts"
-                    >
-                        {isRunningAll ? '⏳' : '▶️'} Run All
-                    </button>
-                    <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1" />
+                {/* Main Content Area */}
+                <div className="flex-1 flex flex-col h-full relative">
 
-                    <button
-                        onClick={() => setShowDependencies(!showDependencies)}
-                        className={`p-2 backdrop-blur-md rounded-lg shadow-sm border transition-colors`}
-                        style={{
-                            backgroundColor: showDependencies ? 'var(--accent-color)' : 'var(--surface-color)',
-                            borderColor: showDependencies ? 'var(--accent-color)' : 'var(--border-color)',
-                            color: showDependencies ? '#fff' : 'var(--text-color)'
-                        }}
-                        title="Toggle Dependencies"
-                    >
-                        🔗
-                    </button>
-                    <button
-                        onClick={() => setShowSidebar(!showSidebar)}
-                        className={`p-2 backdrop-blur-md rounded-lg shadow-sm border transition-colors`}
-                        style={{
-                            backgroundColor: showSidebar ? 'var(--accent-color)' : 'var(--surface-color)',
-                            borderColor: showSidebar ? 'var(--accent-color)' : 'var(--border-color)',
-                            color: showSidebar ? '#fff' : 'var(--text-color)'
-                        }}
-                        title="Toggle Variables"
-                    >
-                        📦
-                    </button>
-                </div>
-
-                {/* Notebook Tabs */}
-                <NotebookTabs />
-
-                {/* Canvas Area */}
-                <div
-                    ref={canvasRef}
-                    className={`flex-1 relative overflow-hidden ${isSpacePressed ? 'cursor-grab' : 'cursor-crosshair'} ${isPanning ? 'cursor-grabbing' : ''}`}
-                    onWheel={handleWheel}
-                    onPointerDown={handlePointerDown}
-                    onPointerMove={handlePointerMove}
-                    onPointerUp={handlePointerUp}
-                    onPointerLeave={handlePointerUp}
-                >
-                    {/* Grid Background */}
+                    {/* Canvas Area */}
                     <div
-                        className="absolute inset-0 pointer-events-none opacity-10"
-                        style={{
-                            backgroundImage: 'radial-gradient(var(--grid-color) 1px, transparent 1px)',
-                            backgroundSize: `${20 * zoom}px ${20 * zoom}px`,
-                            backgroundPosition: `${pan.x}px ${pan.y}px`
-                        }}
-                    />
-
-                    {/* Infinite Canvas Container */}
-                    <div
-                        className="absolute inset-0 transform-gpu"
-                        style={{
-                            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-                            width: '100%',
-                            height: '100%'
-                        }}
+                        ref={canvasRef}
+                        className={`flex-1 relative overflow-hidden ${isSpacePressed ? 'cursor-grab' : 'cursor-crosshair'} ${isPanning ? 'cursor-grabbing' : ''}`}
+                        onWheel={handleWheel}
+                        onPointerDown={handlePointerDown}
+                        onPointerMove={handlePointerMove}
+                        onPointerUp={handlePointerUp}
+                        onPointerLeave={handlePointerUp}
+                        onDragOver={handleDragOver}
+                        onDrop={handleDrop}
                     >
-                        {/* Dependency Layer */}
-                        <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-visible">
-                            <defs>
-                                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                                    <polygon points="0 0, 10 3.5, 0 7" fill="var(--grid-color)" />
-                                </marker>
-                            </defs>
-                            {dependencyLines.map(line => (
-                                <path
-                                    key={line.id}
-                                    d={`M ${line.start.x} ${line.start.y} C ${line.start.x + 50} ${line.start.y}, ${line.end.x - 50} ${line.end.y}, ${line.end.x} ${line.end.y}`}
-                                    stroke="var(--grid-color)"
-                                    strokeWidth="2"
-                                    fill="none"
-                                    markerEnd="url(#arrowhead)"
-                                />
-                            ))}
-                        </svg>
+                        {/* Grid Background */}
+                        <div
+                            className="absolute inset-0 pointer-events-none opacity-20"
+                            style={{
+                                backgroundImage: 'radial-gradient(var(--grid-color) 1px, transparent 1px)',
+                                backgroundSize: `${20 * zoom}px ${20 * zoom}px`,
+                                backgroundPosition: `${pan.x}px ${pan.y}px`
+                            }}
+                        />
 
-                        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-                            {blocks.map((block) => (
-                                <BlockWrapper
-                                    key={block.id}
-                                    block={block}
-                                    scale={zoom}
-                                    onResize={(size) => updateBlock(block.id, { size })}
-                                    onDelete={() => removeBlock(block.id)}
-                                >
-                                    {block.type === 'text' && (
-                                        <TextBlock
-                                            block={block}
-                                            onChange={(updates) => updateBlock(block.id, updates)}
-                                        />
-                                    )}
-                                    {block.type === 'script' && (
-                                        <ScriptBlock
-                                            block={block}
-                                            onChange={(updates) => updateBlock(block.id, updates)}
-                                        />
-                                    )}
-                                    {block.type === 'formula' && (
-                                        <FormulaBlock
-                                            block={block}
-                                            onChange={(updates) => updateBlock(block.id, updates)}
-                                        />
-                                    )}
-                                    {block.type === 'image' && (
-                                        <ImageBlock
-                                            block={block}
-                                            onChange={(updates) => updateBlock(block.id, updates)}
-                                        />
-                                    )}
-                                    {block.type === 'table' && (
-                                        <TableBlock
-                                            block={block}
-                                            onChange={(updates) => updateBlock(block.id, updates)}
-                                        />
-                                    )}
-                                    {block.type === 'data' && (
-                                        <DataImportBlock
-                                            block={block}
-                                            onChange={(updates) => updateBlock(block.id, updates)}
-                                        />
-                                    )}
-                                    {block.type === 'cad' && (
-                                        <CADBlock
-                                            id={block.id}
-                                            content={block.content}
-                                            onUpdate={(content) => updateBlock(block.id, { content })}
-                                        />
-                                    )}
-                                </BlockWrapper>
-                            ))}
-                        </DndContext>
+                        {/* Infinite Canvas Container */}
+                        <div
+                            className="absolute inset-0 transform-gpu"
+                            style={{
+                                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                                width: '100%',
+                                height: '100%'
+                            }}
+                        >
+                            {/* Dependency Layer */}
+                            <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-visible">
+                                <defs>
+                                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                        <polygon points="0 0, 10 3.5, 0 7" fill="var(--accent-color)" opacity="0.5" />
+                                    </marker>
+                                </defs>
+                                {dependencyLines.map(line => (
+                                    <path
+                                        key={line.id}
+                                        d={`M ${line.start.x} ${line.start.y} C ${line.start.x + 50} ${line.start.y}, ${line.end.x - 50} ${line.end.y}, ${line.end.x} ${line.end.y}`}
+                                        stroke="var(--accent-color)"
+                                        strokeWidth="1"
+                                        strokeOpacity="0.4"
+                                        fill="none"
+                                        markerEnd="url(#arrowhead)"
+                                    />
+                                ))}
+                            </svg>
+
+                            <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+                                {blocks.map((block) => (
+                                    <BlockWrapper
+                                        key={block.id}
+                                        block={block}
+                                        scale={zoom}
+                                        onResize={(size) => updateBlock(block.id, { size })}
+                                        onDelete={() => removeBlock(block.id)}
+                                    >
+                                        {block.type === 'text' && (
+                                            <TextBlock
+                                                block={block}
+                                                onChange={(updates) => updateBlock(block.id, updates)}
+                                            />
+                                        )}
+                                        {block.type === 'script' && (
+                                            <ScriptBlock
+                                                block={block}
+                                                onChange={(updates) => updateBlock(block.id, updates)}
+                                            />
+                                        )}
+                                        {block.type === 'formula' && (
+                                            <FormulaBlock
+                                                block={block}
+                                                onChange={(updates) => updateBlock(block.id, updates)}
+                                            />
+                                        )}
+                                        {block.type === 'image' && (
+                                            <ImageBlock
+                                                block={block}
+                                                onChange={(updates) => updateBlock(block.id, updates)}
+                                            />
+                                        )}
+                                        {block.type === 'table' && (
+                                            <TableBlock
+                                                block={block}
+                                                onChange={(updates) => updateBlock(block.id, updates)}
+                                            />
+                                        )}
+                                        {block.type === 'data' && (
+                                            <DataImportBlock
+                                                block={block}
+                                                onChange={(updates) => updateBlock(block.id, updates)}
+                                            />
+                                        )}
+                                        {block.type === 'cad' && (
+                                            <CADBlock
+                                                id={block.id}
+                                                content={block.content}
+                                                onUpdate={(content) => updateBlock(block.id, { content })}
+                                            />
+                                        )}
+                                    </BlockWrapper>
+                                ))}
+                            </DndContext>
+                        </div>
                     </div>
-
-                    {/* Sidebars and Chat */}
-                    {showSidebar && <Sidebar />}
-                    <SimpleChatButton />
                 </div>
+
+                {/* Right Sidebar (Variables) */}
+                {showSidebar && <Sidebar />}
             </div>
+
+            <SimpleChatButton />
         </div>
     );
 };

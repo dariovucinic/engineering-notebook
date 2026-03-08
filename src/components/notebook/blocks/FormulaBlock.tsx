@@ -5,7 +5,7 @@ import { FormulaBlock as FormulaBlockType } from '@/types/block';
 import { useComputation } from '@/contexts/ComputationContext';
 import 'katex/dist/katex.min.css';
 import { InlineMath } from 'react-katex';
-import { Settings, Palette, Type } from 'lucide-react';
+import { Settings } from 'lucide-react';
 
 interface FormulaBlockProps {
     block: FormulaBlockType;
@@ -42,14 +42,24 @@ const FormulaBlock: React.FC<FormulaBlockProps> = ({ block, onChange }) => {
         }
 
         try {
-            const res = evaluateFormula(block.content);
+            // Strip comment lines (starting with //) before evaluation
+            const evaluatableContent = block.content
+                .split('\n')
+                .filter(line => !line.trim().startsWith('//'))
+                .join('\n')
+                .trim();
 
-            // Handle mathjs ResultSet or single result
+            if (!evaluatableContent) {
+                setResults([]);
+                return;
+            }
+
+            const res = evaluateFormula(evaluatableContent);
+
             let newResults: any[] = [];
             if (res && typeof res === 'object' && 'entries' in res && Array.isArray(res.entries)) {
                 newResults = res.entries;
             } else if (res !== undefined) {
-                // If it's a single result, we need to map it to the correct line.
                 newResults = [res];
             }
 
@@ -58,12 +68,11 @@ const FormulaBlock: React.FC<FormulaBlockProps> = ({ block, onChange }) => {
             console.error("Error evaluating formula:", err);
             setResults([]);
         }
-    }, [block.content, block.variableName, evaluateFormula, scope, scopeVersion]);
+    }, [block.content, evaluateFormula, scope, scopeVersion]);
 
     useEffect(() => {
         if (isEditing && inputRef.current) {
             inputRef.current.focus();
-            // Auto-resize on open
             inputRef.current.style.height = 'auto';
             inputRef.current.style.height = inputRef.current.scrollHeight + 'px';
         }
@@ -74,7 +83,6 @@ const FormulaBlock: React.FC<FormulaBlockProps> = ({ block, onChange }) => {
             return Number.isInteger(val) ? val.toString() : val.toFixed(4);
         }
         if (typeof val === 'object') {
-            // Handle arrays/matrices nicely
             return JSON.stringify(val);
         }
         return val !== undefined && val !== null ? val.toString() : '';
@@ -83,28 +91,29 @@ const FormulaBlock: React.FC<FormulaBlockProps> = ({ block, onChange }) => {
     const getLatex = (expression: string) => {
         try {
             let latex = expression;
+            // Convert (a * b) / c  or  a / b  ->  \frac{a * b}{c}
+            // Strip outer parens from numerator/denominator so they don't appear in the rendered formula
+            latex = latex.replace(
+                /(\([^)]+\)|[a-zA-Z0-9_]+)\s*\/\s*(\([^)]+\)|[a-zA-Z0-9_]+)/g,
+                (_, num, den) => {
+                    const n = num.startsWith('(') && num.endsWith(')') ? num.slice(1, -1).trim() : num;
+                    const d = den.startsWith('(') && den.endsWith(')') ? den.slice(1, -1).trim() : den;
+                    return `\\frac{${n}}{${d}}`;
+                }
+            );
 
-            // Convert divisions to fractions: a/b -> \frac{a}{b}
-            // Handles: numbers, variables, and parenthesized expressions
-            latex = latex.replace(/([a-zA-Z0-9]+|\([^)]+\))\/([a-zA-Z0-9]+|\([^)]+\))/g, '\\frac{$1}{$2}');
-
-            // Greek letters map
             const greekMap: Record<string, string> = {
                 alpha: '\\alpha', beta: '\\beta', gamma: '\\gamma', delta: '\\delta', epsilon: '\\epsilon',
                 zeta: '\\zeta', eta: '\\eta', theta: '\\theta', iota: '\\iota', kappa: '\\kappa',
                 lambda: '\\lambda', mu: '\\mu', nu: '\\nu', xi: '\\xi', omicron: 'o',
                 pi: '\\pi', rho: '\\rho', sigma: '\\sigma', tau: '\\tau', upsilon: '\\upsilon',
                 phi: '\\phi', chi: '\\chi', psi: '\\psi', omega: '\\omega',
-                // Uppercase
                 Gamma: '\\Gamma', Delta: '\\Delta', Theta: '\\Theta', Lambda: '\\Lambda',
                 Xi: '\\Xi', Pi: '\\Pi', Sigma: '\\Sigma', Upsilon: '\\Upsilon',
                 Phi: '\\Phi', Psi: '\\Psi', Omega: '\\Omega'
             };
 
-            // Replace Greek letters (whole words only)
             latex = latex.replace(new RegExp(`\\b(${Object.keys(greekMap).join('|')})\\b`, 'g'), (match) => greekMap[match]);
-
-            // Convert remaining operators
             latex = latex
                 .replace(/\*/g, '\\cdot ')
                 .replace(/sqrt\(([^)]+)\)/g, '\\sqrt{$1}')
@@ -116,80 +125,59 @@ const FormulaBlock: React.FC<FormulaBlockProps> = ({ block, onChange }) => {
         }
     };
 
-    const getDisplayLatex = () => {
-        const lines = block.content.split('\n');
+    // Detect if RHS of an assignment is a simple literal (no operators, no variable references)
+    const isSimpleLiteral = (rhs: string): boolean => {
+        // A simple literal is just a number, possibly with a sign
+        return /^-?\d+(\.\d+)?$/.test(rhs.trim());
+    };
 
-        // If we have a single result but multiple lines, it's likely the result of the last expression.
-        // If we have a ResultSet, entries correspond to expressions. 
-        // Note: Empty lines are skipped by mathjs in the ResultSet.
-        // This makes mapping tricky. We need to identify which lines are expressions.
-        // Simple approach: Map results to non-empty lines? 
-        // Or better: rely on the fact that we want to show results for lines that generate them.
+    // Returns an array of {latex, result, isComment} objects for each line
+    const getLineItems = () => {
+        const lines = block.content.split('\n');
+        const nonCommentLines = lines.filter(l => !l.trim().startsWith('//') && l.trim() !== '');
 
         let resultIndex = 0;
 
-        const displayLines = lines.map((line) => {
-            if (!line.trim()) return ''; // Skip empty lines in display? Or keep them empty.
+        return lines.map((line) => {
+            if (!line.trim()) return { empty: true };
 
-            let latex = getLatex(line);
+            if (line.trim().startsWith('//')) {
+                return { isComment: true, text: line.trim().slice(2).trim() };
+            }
 
-            // Try to find a result for this line
-            // If results is an array from ResultSet, it matches expression order.
-            let resultVal = undefined;
-
-            // Heuristic: if the line looks like an expression (not empty, not just comment), consume a result.
-            // This is imperfect but might work for now.
+            let resultVal: any = undefined;
             if (results.length > 0) {
-                // If results is just one item and we are at the last non-empty line?
-                // Let's assume 1-to-1 mapping if results.length == lines.length (excluding empty?)
-                // Actually, let's just use the index if it matches, otherwise fallback.
-
-                if (results.length === lines.length) {
-                    resultVal = results[lines.indexOf(line)]; // This is wrong if duplicate lines.
-                } else {
-                    // If lengths differ, we can't easily map. 
-                    // Fallback: show result only on the last line if it's a single result.
-                    if (results.length === 1 && line === lines[lines.length - 1]) {
-                        resultVal = results[0];
-                    } else if (results.length > resultIndex) {
-                        resultVal = results[resultIndex];
-                        resultIndex++;
-                    }
+                if (results.length === nonCommentLines.length) {
+                    const idx = nonCommentLines.indexOf(line.trim());
+                    resultVal = idx >= 0 ? results[idx] : undefined;
+                } else if (results.length > resultIndex) {
+                    resultVal = results[resultIndex];
+                    resultIndex++;
                 }
             }
 
-            if (resultVal !== undefined && resultVal !== null) {
+            const isAssignment = line.includes('=');
+            const rhs = isAssignment ? line.split('=').slice(1).join('=').trim() : '';
+            const simple = isSimpleLiteral(rhs);
+
+            // Build the display latex: if it's a computed expression (not a simple literal),
+            // append = result inline into the formula itself.
+            let displayLatex = getLatex(line);
+
+            if (!simple && resultVal !== undefined && resultVal !== null) {
                 const formattedResult = formatResult(resultVal);
-
-                // Check if result is redundant (e.g. a = 5, result is 5)
-                const isAssignment = line.includes('=');
-                const rhs = isAssignment ? line.split('=').pop()?.trim() : line.trim();
-
-                // If the RHS is exactly the result, don't show it
+                // Only append if the raw result differs from the literal RHS
                 if (rhs !== formattedResult) {
-                    latex += ` = ${formattedResult}`;
+                    displayLatex += ` = ${formattedResult}`;
                 }
             }
 
-            return `&${latex}`;
+            return { isComment: false, empty: false, latex: displayLatex };
         });
-
-        if (block.variableName) {
-            if (displayLines.length > 0) {
-                displayLines[0] = `&${block.variableName} = ` + displayLines[0].substring(1);
-            }
-        }
-
-        return `\\begin{aligned} ${displayLines.join(' \\\\ ')} \\end{aligned}`;
     };
 
     const handleStyleChange = (key: 'color' | 'fontSize', value: string) => {
-        onChange({
-            style: {
-                ...block.style,
-                [key]: value
-            }
-        });
+        onChange({ style: { ...block.style, [key]: value } });
     };
 
     return (
@@ -236,52 +224,48 @@ const FormulaBlock: React.FC<FormulaBlockProps> = ({ block, onChange }) => {
                 <Settings size={14} />
             </button>
 
+            {/* Content Area */}
             <div
-                className="flex-1 flex items-center px-4 py-2"
-                onDoubleClick={() => setIsEditing(true)}
+                className="flex-1 flex flex-col px-4 py-2 cursor-text"
+                onClick={() => { if (!isEditing) setIsEditing(true); }}
             >
                 {isEditing ? (
-                    <div className="flex items-start gap-2 w-full">
-                        <input
-                            className="w-16 font-mono text-sm outline-none border-b focus:border-indigo-500 bg-transparent text-right pt-1"
-                            style={{
-                                color: 'var(--text-color)',
-                                borderColor: 'var(--border-color)'
-                            }}
-                            value={block.variableName || ''}
-                            onChange={(e) => onChange({ variableName: e.target.value })}
-                            placeholder="var"
-                        />
-                        <span className="font-mono pt-1" style={{ color: 'var(--text-color)' }}>=</span>
-                        <textarea
-                            ref={inputRef}
-                            className="flex-1 font-mono text-sm outline-none border-b focus:border-indigo-500 bg-transparent resize-none overflow-hidden min-h-[1.5rem]"
-                            style={{
-                                color: 'var(--text-color)',
-                                borderColor: 'var(--border-color)'
-                            }}
-                            value={block.content}
-                            onChange={(e) => {
-                                onChange({ content: e.target.value });
-                                // Auto-resize
-                                e.target.style.height = 'auto';
-                                e.target.style.height = e.target.scrollHeight + 'px';
-                            }}
-                            onBlur={() => setIsEditing(false)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    setIsEditing(false);
-                                }
-                            }}
-                            placeholder="Write variables, formulas and operations"
-                            rows={1}
-                        />
-                    </div>
+                    <textarea
+                        ref={inputRef}
+                        className="w-full font-mono text-sm outline-none bg-transparent resize-none overflow-hidden min-h-[1.5rem]"
+                        style={{ color: 'var(--text-color)' }}
+                        value={block.content}
+                        onChange={(e) => {
+                            onChange({ content: e.target.value });
+                            e.target.style.height = 'auto';
+                            e.target.style.height = e.target.scrollHeight + 'px';
+                        }}
+                        onBlur={() => setIsEditing(false)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Escape') {
+                                e.preventDefault();
+                                setIsEditing(false);
+                            }
+                        }}
+                        placeholder="Write variables, formulas and operations..."
+                        rows={1}
+                    />
                 ) : (
-                    <div className="w-full cursor-text">
+                    <div className="w-full flex flex-col gap-0.5">
                         {block.content ? (
-                            <InlineMath math={getDisplayLatex()} />
+                            getLineItems().map((item: any, i: number) => {
+                                if (item.empty) return <div key={i} className="h-3" />;
+                                if (item.isComment) return (
+                                    <div key={i} className="text-sm italic" style={{ color: 'var(--text-secondary-color)', opacity: 0.6 }}>
+                                        {item.text}
+                                    </div>
+                                );
+                                return (
+                                    <div key={i} className="min-h-[1.75rem] flex items-baseline">
+                                        <InlineMath math={item.latex} />
+                                    </div>
+                                );
+                            })
                         ) : (
                             <span className="italic text-sm" style={{ color: 'var(--text-secondary-color)' }}>Write variables, formulas and operations...</span>
                         )}

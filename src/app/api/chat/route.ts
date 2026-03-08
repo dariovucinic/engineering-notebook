@@ -19,15 +19,38 @@ export async function POST(req: Request) {
         }
 
         // Build prompt from chat history
-        const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop();
-        const systemContext = messages.find((m: any) => m.role === 'system');
-        const prompt = systemContext
-            ? `${systemContext.content}\n\nUser: ${lastUserMessage?.content}`
-            : lastUserMessage?.content || '';
+        // Gemini API expects alternating user/model turns or starting with user.
+        // System instructions are best handled by prepending to the first user message or using the systemInstruction field (beta).
+        // Here we map our roles to Gemini roles and merge system context.
 
-        // Call Gemini API directly (v1beta endpoint, gemini-2.0-flash model)
-        // We found that gemini-2.0-flash is available for this key
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+        let history: any[] = [];
+        let systemContent = '';
+
+        for (const m of messages) {
+            if (m.role === 'system') {
+                systemContent += m.content + '\n\n';
+            } else {
+                const role = m.role === 'assistant' ? 'model' : 'user';
+                // If it's the first user message, prepend system context
+                let text = m.content;
+                if (role === 'user' && systemContent) {
+                    text = systemContent + text;
+                    systemContent = ''; // Clear it so we don't add it again
+                }
+                history.push({
+                    role: role,
+                    parts: [{ text }]
+                });
+            }
+        }
+
+        // If system content is still there (e.g. no user message yet?), force a user message
+        if (systemContent && history.length === 0) {
+            history.push({ role: 'user', parts: [{ text: systemContent }] });
+        }
+
+        // Call Gemini API directly 
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
         console.log('Calling Gemini API:', url.replace(apiKey, '***'));
 
@@ -35,13 +58,29 @@ export async function POST(req: Request) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                contents: [{ role: 'user', parts: [{ text: prompt }] }]
+                contents: history
             })
         });
 
         if (!response.ok) {
             const errorText = await response.text();
             console.error('Gemini API Error:', response.status, errorText);
+
+            // Parse rate-limit errors to give a friendly message
+            if (response.status === 429) {
+                let retrySeconds = 60;
+                try {
+                    const errJson = JSON.parse(errorText);
+                    const retryInfo = errJson?.error?.details?.find((d: any) => d['@type']?.includes('RetryInfo'));
+                    if (retryInfo?.retryDelay) {
+                        retrySeconds = parseInt(retryInfo.retryDelay.replace('s', ''), 10) || 60;
+                    }
+                } catch { }
+                return NextResponse.json({
+                    error: `Rate limit reached — please wait ${retrySeconds} seconds before trying again. (Free tier: 20 requests/day on gemini-2.5-flash)`
+                }, { status: 429 });
+            }
+
             return NextResponse.json({ error: `Gemini API error ${response.status}: ${errorText}` }, { status: 500 });
         }
 

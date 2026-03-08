@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "export": "next build",
     "lint": "eslint"
+  },
+  "browser": {
+    "module": false
   },
   "dependencies": {
     "@codemirror/lang-javascript": "^6.2.4",
@@ -27,6 +31,7 @@
     "clsx": "^2.1.1",
     "codemirror": "^6.0.2",
     "file-saver": "^2.0.5",
+    "forgecad": "github:KoStard/ForgeCAD#mainline",
     "framer-motion": "^12.23.25",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.4",

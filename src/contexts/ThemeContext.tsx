@@ -11,7 +11,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-export type ThemeMode = 'light' | 'dark' | 'engineering';
+export type ThemeMode = 'light' | 'dark' | 'engineering' | 'scifi';
 
 interface ThemeColors {
     primary: string;
@@ -54,6 +54,16 @@ export const themes: Record<ThemeMode, ThemeColors> = {
         textSecondary: '#60a5fa',
         border: '#bfdbfe',
         grid: '#93c5fd'
+    },
+    scifi: {
+        primary: '#06b6d4', // Cyan
+        accent: '#3b82f6', // Electric Blue
+        background: '#0f172a', // Deep Space (Slate 900)
+        surface: 'rgba(30, 41, 59, 0.7)', // Translucent Slate
+        text: '#e2e8f0', // Light Slate
+        textSecondary: '#94a3b8',
+        border: 'rgba(56, 189, 248, 0.3)', // Glowing Blue Border
+        grid: 'rgba(56, 189, 248, 0.1)'
     }
 };
 
@@ -66,7 +76,7 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [theme, setTheme] = useState<ThemeMode>('light');
+    const [theme, setTheme] = useState<ThemeMode>('scifi');
 
     // Load theme from local storage on mount
     useEffect(() => {

@@ -8,7 +8,7 @@
  * Unauthorized copying, distribution, or use is strictly prohibited.
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 import { Block, BlockType } from '@/types/block';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -29,6 +29,8 @@ interface NotebookContextType {
     addBlock: (type: BlockType, position: { x: number; y: number }, initialContent?: any) => void;
     updateBlock: (id: string, updates: Partial<Block>) => void;
     removeBlock: (id: string) => void;
+    projectName: string;
+    setProjectName: (name: string) => void;
 }
 
 const NotebookContext = createContext<NotebookContextType | null>(null);
@@ -39,6 +41,7 @@ export const NotebookProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         { id: 'default', name: 'Notebook 1', blocks: [] }
     ]);
     const [activeNotebookId, setActiveNotebookId] = useState<string>('default');
+    const [projectName, setProjectName] = useState('Mark 85');
 
     const activeNotebook = notebooks.find(n => n.id === activeNotebookId);
 
@@ -182,7 +185,9 @@ export const NotebookProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             switchNotebook,
             addBlock,
             updateBlock,
-            removeBlock
+            removeBlock,
+            projectName,
+            setProjectName
         }}>
             {children}
         </NotebookContext.Provider>

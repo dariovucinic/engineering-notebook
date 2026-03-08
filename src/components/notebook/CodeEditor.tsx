@@ -10,12 +10,14 @@
 
 
 import React, { useEffect, useRef } from 'react';
+import { autocompletion } from '@codemirror/autocomplete';
 import { EditorView, basicSetup } from 'codemirror';
 import { EditorState } from '@codemirror/state';
 import { python } from '@codemirror/lang-python';
 import { javascript } from '@codemirror/lang-javascript';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { keymap } from '@codemirror/view';
+import { indentWithTab } from '@codemirror/commands';
 
 interface CodeEditorProps {
     value: string;
@@ -23,9 +25,10 @@ interface CodeEditorProps {
     language?: 'python' | 'javascript' | 'r';
     readOnly?: boolean;
     onRun?: () => void;
+    autoFocus?: boolean;
 }
 
-const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, language = 'python', readOnly = false, onRun }) => {
+const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, language = 'python', readOnly = false, onRun, autoFocus = false }) => {
     const editorRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
     const onRunRef = useRef(onRun);
@@ -45,9 +48,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, language = 'py
             doc: value,
             extensions: [
                 basicSetup,
+                autocompletion(),
                 langExtension,
                 oneDark,
                 keymap.of([
+                    indentWithTab,
                     {
                         key: "Shift-Enter",
                         run: (view) => {
@@ -94,6 +99,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, language = 'py
         });
 
         viewRef.current = view;
+
+        if (autoFocus) {
+            view.focus();
+        }
 
         return () => {
             view.destroy();

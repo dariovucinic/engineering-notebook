@@ -27,8 +27,8 @@ const TextBlock: React.FC<TextBlockProps> = ({ block, onChange }) => {
     const [showVariables, setShowVariables] = useState(false);
 
     const style = block.style || {
-        color: '#000000',
-        fontSize: '14px',
+        color: '#ffffff', // Default to white for dark mode
+        fontSize: '16px', // Slightly larger for readability
         fontFamily: 'Inter, sans-serif',
         textAlign: 'left'
     };
@@ -112,23 +112,24 @@ const TextBlock: React.FC<TextBlockProps> = ({ block, onChange }) => {
 
         return (
             <div ref={containerRef} className="w-full h-full flex flex-col">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2 p-2 border-b border-white/10 bg-black/20 backdrop-blur-md sticky top-0 z-10">
                     <FormattingToolbar style={style} onChange={handleStyleChange} />
 
                     {/* Variable Selector */}
-                    <div className="relative">
+                    <div className="relative ml-auto">
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
                                 setShowVariables(!showVariables);
                             }}
-                            className={`px-2 py-1 text-xs font-medium rounded border transition-colors ${showVariables ? 'bg-indigo-100 text-indigo-700 border-indigo-300' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border-indigo-200'}`}
+                            className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded transition-all ${showVariables ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50' : 'text-white/40 hover:text-white hover:bg-white/5 border border-transparent'}`}
                         >
                             {'{x}'} Vars
                         </button>
                         {showVariables && (
-                            <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden z-50">
-                                <div className="max-h-48 overflow-y-auto p-1">
+                            <div className="absolute right-0 top-full mt-2 w-56 bg-[#1a1a1a] rounded-lg shadow-2xl border border-white/10 overflow-hidden z-50">
+                                <div className="p-2 border-b border-white/5 text-[10px] font-bold text-white/30 uppercase tracking-widest">Available Variables</div>
+                                <div className="max-h-48 overflow-y-auto p-1 custom-scrollbar">
                                     {variables.length > 0 ? (
                                         variables.map(v => (
                                             <button
@@ -137,16 +138,16 @@ const TextBlock: React.FC<TextBlockProps> = ({ block, onChange }) => {
                                                     insertVariable(v);
                                                     setShowVariables(false);
                                                 }}
-                                                className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 rounded flex items-center justify-between group/item"
+                                                className="w-full text-left px-3 py-2 text-sm text-white/80 hover:bg-white/10 rounded flex items-center justify-between group/item transition-colors"
                                             >
-                                                <span className="font-mono text-xs">{v}</span>
-                                                <span className="text-xs text-slate-400 group-hover/item:text-indigo-500">
-                                                    {String(scope.current[v]).substring(0, 10)}
+                                                <span className="font-mono text-xs text-cyan-400">{v}</span>
+                                                <span className="text-[10px] text-white/30 font-mono group-hover/item:text-white/50">
+                                                    {String(scope.current[v]).substring(0, 15)}
                                                 </span>
                                             </button>
                                         ))
                                     ) : (
-                                        <div className="px-3 py-2 text-xs text-slate-400 text-center">No variables</div>
+                                        <div className="px-3 py-4 text-xs text-white/20 text-center italic">No variables yet</div>
                                     )}
                                 </div>
                             </div>
@@ -156,16 +157,16 @@ const TextBlock: React.FC<TextBlockProps> = ({ block, onChange }) => {
 
                 <textarea
                     ref={textareaRef}
-                    className="w-full flex-1 p-4 resize-none outline-none bg-white font-mono text-sm"
+                    className="w-full flex-1 p-6 resize-none outline-none bg-transparent font-sans leading-relaxed custom-scrollbar selection:bg-cyan-500/30"
                     style={{
-                        color: style.color,
+                        color: style.color || '#ffffff', // Fallback to white if null
                         fontSize: style.fontSize,
                         fontFamily: style.fontFamily,
                         textAlign: style.textAlign
                     }}
                     value={block.content}
                     onChange={(e) => onChange({ content: e.target.value })}
-                    placeholder="Type markdown here... Use {varName} to display variables"
+                    placeholder="Type notes here... Use {variable} to show values."
                 />
             </div>
         );
@@ -197,7 +198,7 @@ const TextBlock: React.FC<TextBlockProps> = ({ block, onChange }) => {
                     {interpolated}
                 </ReactMarkdown>
             ) : (
-                <span className="text-slate-400 italic">Click to add text...</span>
+                <span className="text-white/20 italic font-light">Click to add text...</span>
             )}
         </div>
     );

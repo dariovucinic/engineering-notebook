@@ -97,53 +97,69 @@ const BlockWrapper: React.FC<BlockWrapperProps> = ({ block, isSelected, scale, c
                         damping: 25,
                         mass: 0.8
                     }}
-                    className={`h-full w-full relative overflow-hidden rounded-xl flex flex-col glass
+                    className={`h-full w-full relative overflow-hidden rounded-sm flex flex-col glass
                         ${isSelected
-                            ? 'ring-2 ring-accent shadow-lg'
-                            : 'hover:shadow-xl'
+                            ? 'ring-1 ring-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.2)]'
+                            : 'hover:shadow-lg hover:ring-1 hover:ring-white/10'
                         }
-                        ${isDragging ? 'shadow-2xl ring-2 ring-accent' : ''}
+                        ${isDragging ? 'shadow-2xl ring-1 ring-cyan-500 scale-105' : ''}
                     `}
                     style={{
                         borderColor: isSelected ? 'var(--accent-color)' : undefined,
-                        '--tw-ring-color': 'var(--accent-color)'
+                        // Corner accents via clip-path could be cool but complex. 
+                        // For now, let's stick to borders and glass.
                     } as React.CSSProperties}
                 >
-                    {/* Drag Handle Header */}
+                    {/* Drag Handle Header - SciFi Style */}
                     <div
                         {...listeners}
                         {...attributes}
-                        className="h-6 w-full absolute top-0 left-0 z-50 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing flex justify-center items-center"
+                        className="h-6 w-full absolute top-0 left-0 z-50 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing flex justify-between items-center px-2 bg-gradient-to-r from-transparent via-white/5 to-transparent"
                     >
-                        <div className="w-12 h-1 rounded-full mt-2 shadow-sm bg-black/10 dark:bg-white/10 backdrop-blur-md" />
+                        {/* Decorative technical markers */}
+                        <div className="flex gap-1">
+                            <div className="w-1 h-3 bg-cyan-500/50 rounded-sm"></div>
+                            <div className="w-1 h-2 bg-cyan-500/30 rounded-sm mt-1"></div>
+                        </div>
+
+                        <div className="w-16 h-1 rounded-full bg-cyan-500/20 backdrop-blur-md" />
+
+
+                        <div className="flex gap-1">
+                            <div className="w-1 h-2 bg-cyan-500/30 rounded-sm mt-1"></div>
+                            <div className="w-1 h-3 bg-cyan-500/50 rounded-sm"></div>
+                        </div>
                     </div>
 
-                    {/* Delete Button */}
+                    {/* Delete Button - HUD Style */}
                     {onDelete && (
                         <motion.button
-                            whileHover={{ scale: 1.1, backgroundColor: '#ef4444', color: '#ffffff' }}
+                            whileHover={{ scale: 1.1, color: '#ef4444' }}
                             whileTap={{ scale: 0.9 }}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onDelete();
                             }}
-                            className="absolute top-2 right-2 z-[60] p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-sm border border-transparent"
+                            className="absolute top-1 right-1 z-[60] p-1 rounded opacity-0 group-hover:opacity-100 transition-all"
                             style={{
                                 color: 'var(--text-secondary-color)',
-                                backgroundColor: 'var(--bg-color)'
                             }}
                             title="Delete block"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M3 6h18"></path>
-                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M18 6L6 18M6 6l12 12"></path>
                             </svg>
                         </motion.button>
                     )}
 
                     {/* Content Area */}
-                    <div className="flex-1 w-full h-full overflow-hidden">
+                    <div className="flex-1 w-full h-full overflow-hidden relative">
+                        {/* Optional corner markers for HUD feel */}
+                        <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-500/30 pointer-events-none" />
+                        <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-500/30 pointer-events-none" />
+                        <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-cyan-500/30 pointer-events-none" />
+                        <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-500/30 pointer-events-none" />
+
                         {children}
                     </div>
                 </motion.div>

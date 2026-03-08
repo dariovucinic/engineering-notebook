@@ -31,56 +31,54 @@ export const ComputationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const scope = useRef<Record<string, any>>({});
     const [scopeVersion, setScopeVersion] = useState(0);
     const [executionCount, setExecutionCount] = useState(0);
+    // Pyodide refs - kept for types but disabled
     const [pyodideReady, setPyodideReady] = useState(false);
     const pyodideRef = useRef<any>(null);
 
-    // Load Pyodide on mount
-    useEffect(() => {
-        const loadPyodide = async () => {
-            try {
-                // @ts-ignore
-                const pyodide = await window.loadPyodide({
-                    indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/'
-                });
-                // Load common engineering libraries
-                await pyodide.loadPackage(["micropip", "numpy", "pandas", "scipy"]);
-
-                pyodideRef.current = pyodide;
-                setPyodideReady(true);
-                console.log('Pyodide loaded successfully');
-            } catch (error) {
-                console.error('Failed to load Pyodide:', error);
-            }
-        };
-        loadPyodide();
-    }, []);
-
-    // Load WebR on mount
+    // WebR refs - kept for types but disabled
     const webRRef = useRef<any>(null);
     const [webRReady, setWebRReady] = useState(false);
 
+    // Kernels are now disabled for faster Electron performance
+    /*
     useEffect(() => {
-        const loadWebR = async () => {
-            try {
-                // Dynamic import from CDN - using new Function to bypass Turbopack analysis
-                const { WebR } = await (new Function('return import("https://webr.r-wasm.org/latest/webr.mjs")'))();
-                const webR = new WebR();
-                await webR.init();
-                webRRef.current = webR;
-                setWebRReady(true);
-                console.log('WebR loaded successfully');
-            } catch (error) {
-                console.error('Failed to load WebR:', error);
-            }
-        };
-        loadWebR();
+        // Pyodide and WebR loading logic removed to prioritize native Python bridge
     }, []);
+    */
 
     const runScript = useCallback(async (code: string, language: 'python' | 'r' = 'python') => {
         const logs: string[] = [];
 
         try {
+            // Check if we are in Electron and have the native bridge
+            // @ts-ignore
+            const isElectron = window.electronAPI?.isElectron;
+
             if (language === 'python') {
+                if (isElectron) {
+                    // Use native Electron bridge
+                    // @ts-ignore
+                    const result = await window.electronAPI.runPython(code, scope.current);
+                    if (result.success) {
+                        // Sync outputs back to scope
+                        if (result.outputs) {
+                            Object.assign(scope.current, result.outputs);
+                            setScopeVersion(prev => prev + 1);
+                        }
+
+                        let output = result.logs || '';
+                        if (result.errors) {
+                            output += (output ? '\n' : '') + '--- ERRORS ---\n' + result.errors;
+                        }
+                        return output || 'Executed successfully (Native)';
+                    } else {
+                        const errOutput = (result.logs ? result.logs + '\n' : '') +
+                            `Error: ${result.error}${result.traceback ? '\n' + result.traceback : ''}`;
+                        return errOutput;
+                    }
+                }
+
+                // Fallback to Pyodide for web
                 if (!pyodideRef.current) {
                     return 'Error: Python is still loading...';
                 }
@@ -95,8 +93,6 @@ export const ComputationProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 try {
                     for (const [key, value] of Object.entries(scope.current)) {
                         if (typeof value === 'object' && value !== null) {
-                            // Convert complex objects (Arrays, Objects) to Python types (List, Dict)
-                            // This prevents "TypeError: 'pyodide.ffi.JsProxy' object is not subscriptable"
                             const pyProxy = pyodideRef.current.toPy(value);
                             proxiesToDestroy.push(pyProxy);
                             pyodideRef.current.globals.set(key, pyProxy);
@@ -111,11 +107,9 @@ export const ComputationProvider: React.FC<{ children: React.ReactNode }> = ({ c
                     // Capture all new/modified variables from Python globals
                     const currentGlobals = pyodideRef.current.globals;
                     for (const key of currentGlobals.keys()) {
-                        // Skip built-in Python modules and private variables
                         if (!key.startsWith('_') && !key.startsWith('__') &&
                             !['js', 'pyodide', 'pyodide_py', 'micropip'].includes(key)) {
                             const value = currentGlobals.get(key);
-                            // Convert Python objects to JS
                             scope.current[key] = typeof value?.toJs === 'function' ? value.toJs() : value;
                         }
                     }
@@ -123,13 +117,8 @@ export const ComputationProvider: React.FC<{ children: React.ReactNode }> = ({ c
                     setScopeVersion(prev => prev + 1);
                     setExecutionCount(prev => prev + 1);
                 } finally {
-                    // Cleanup proxies to avoid memory leaks
                     for (const proxy of proxiesToDestroy) {
-                        try {
-                            proxy.destroy();
-                        } catch (e) {
-                            // Ignore destruction errors
-                        }
+                        try { proxy.destroy(); } catch (e) { }
                     }
                 }
 
